@@ -90,7 +90,17 @@
   border-radius: 10px;
   cursor: pointer;
   white-space: nowrap;
+  width: 100%;
+  text-align: left;
 }
+.calc-context-btn + .calc-context-btn { margin-top: 6px; }
 .calc-context-btn:hover {
   background: rgba(245,166,35,0.22);
+}
+.calc-context-btn-danger {
+  background: rgba(255,80,80,0.14);
+  color: rgba(255,120,120,0.98);
+}
+.calc-context-btn-danger:hover {
+  background: rgba(255,80,80,0.22);
 }

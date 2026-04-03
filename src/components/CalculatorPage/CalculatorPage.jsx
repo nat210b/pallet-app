@@ -17,22 +17,38 @@ function CameraController({ mode, orbitRef }) {
   const { camera } = useThree()
   const targetPos = useRef(new THREE.Vector3(...CAMERA_PRESETS.free.position))
   const targetLook = useRef(new THREE.Vector3(...CAMERA_PRESETS.free.target))
+  const animating = useRef(false)
 
   useEffect(() => {
     const preset = CAMERA_PRESETS[mode]
     if (preset) {
       targetPos.current.set(...preset.position)
       targetLook.current.set(...preset.target)
+      animating.current = true
     }
   }, [mode])
 
+  useEffect(() => {
+    const controls = orbitRef.current
+    if (!controls?.addEventListener) return
+
+    const stop = () => { animating.current = false }
+    controls.addEventListener('start', stop)
+    return () => controls.removeEventListener('start', stop)
+  }, [orbitRef])
+
   useFrame(() => {
-    // Smoothly lerp camera to target
+    if (!animating.current) return
+
     camera.position.lerp(targetPos.current, 0.07)
-    // For locked modes keep looking at target
-    if (mode !== 'free' && orbitRef.current) {
+
+    if (orbitRef.current) {
       orbitRef.current.target.lerp(targetLook.current, 0.07)
       orbitRef.current.update()
+
+      const donePos = camera.position.distanceTo(targetPos.current) < 0.02
+      const doneTarget = orbitRef.current.target.distanceTo(targetLook.current) < 0.02
+      if (donePos && doneTarget) animating.current = false
     }
   })
 
@@ -160,6 +176,11 @@ export default function CalculatorPage() {
   const handleClearAll = useCallback(() => {
     setBoxes([])
     setSelectedId(null)
+  }, [])
+
+  const handleDeleteBox = useCallback((id) => {
+    setBoxes(prev => prev.filter(b => b.id !== id))
+    setSelectedId(prev => (prev === id ? null : prev))
   }, [])
 
   // ── Move a box freely (while on pallet, repositioning) ─────────
@@ -354,13 +375,22 @@ export default function CalculatorPage() {
             >
               Fill this level
             </button>
+            <button
+              className="calc-context-btn calc-context-btn-danger"
+              onClick={() => {
+                handleDeleteBox(contextMenu.boxId)
+                setContextMenu(null)
+              }}
+            >
+              Delete box
+            </button>
           </div>
         )}
 
         <Canvas
           shadows="percentage"
           dpr={[1, 2]}
-          camera={{ position: [...CAMERA_PRESETS.iso.position], fov: 48, near: 0.1, far: 200 }}
+          camera={{ position: [...CAMERA_PRESETS.iso.position], fov: 48, near: 0.1, far: 600 }}
           gl={{ antialias: true }}
           style={{ width: '100%', height: '100%' }}
           onPointerMissed={() => setSelectedId(null)}
@@ -395,7 +425,7 @@ export default function CalculatorPage() {
             enableDamping
             dampingFactor={0.08}
             minDistance={2}
-            maxDistance={80}
+            maxDistance={220}
             minPolarAngle={0.05}
             maxPolarAngle={Math.PI / 2.05}
           />
