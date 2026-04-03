@@ -19,6 +19,7 @@ export default function DraggableBox({
   isSelected, isStaged,
   onSelect, onMove, onDropToPallet,
   onDragStateChange,
+  onContextMenu,
   colorIndex,
 }) {
   const groupRef = useRef()
@@ -177,6 +178,11 @@ export default function DraggableBox({
     }
   }, [id, onMove, onDropToPallet, onDragStateChange, halfPW, halfPD, selfHalfX, selfHalfZ])
 
+  const handleOpenMenu = useCallback((e) => {
+    e.stopPropagation()
+    onContextMenu?.(id, e.nativeEvent ?? e)
+  }, [id, onContextMenu])
+
   useFrame(() => {
     if (!groupRef.current) return
     if (dragging.current) {
@@ -258,6 +264,7 @@ export default function DraggableBox({
         onPointerOut={() => setHovered(false)}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
+        onDoubleClick={handleOpenMenu}
       >
         <boxGeometry args={[sx, sy, sz]} />
         <meshStandardMaterial

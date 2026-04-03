@@ -48,6 +48,7 @@ export default function CalculatorPage() {
   const [cameraMode,  setCameraMode]  = useState('iso')
   const [orbitEnabled, setOrbitEnabled] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
+  const [contextMenu, setContextMenu] = useState(null)
 
   const orbitRef = useRef()
 
@@ -124,6 +125,18 @@ export default function CalculatorPage() {
 
   const heightWarning = maxStackY > palletDims.height / 10
 
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    const onKey = (e) => { if (e.key === 'Escape') close() }
+    window.addEventListener('mousedown', close)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [contextMenu])
+
   const utilPct = useMemo(() => {
     const palletVol = palletDims.length * palletDims.width * palletDims.height
     if (!palletVol || !placedBoxes.length) return 0
@@ -161,6 +174,110 @@ export default function CalculatorPage() {
     ))
   }, [])
 
+  const handleFillLevel = useCallback((boxId) => {
+    setBoxes(prev => {
+      const ref = prev.find(b => b.id === boxId)
+      if (!ref) return prev
+
+      const halfPW = palletDims.length / 10 / 2
+      const halfPD = palletDims.width  / 10 / 2
+      const palletH = palletDims.height / 10
+
+      const rotY = ref.rotation?.[1] ?? 0
+      const quarterTurns = ((Math.round(rotY / (Math.PI / 2)) % 4) + 4) % 4
+      const swapped = quarterTurns % 2 === 1
+
+      const sizeX = (swapped ? ref.dims.width : ref.dims.length) / 10
+      const sizeZ = (swapped ? ref.dims.length : ref.dims.width) / 10
+      const halfX = sizeX / 2
+      const halfZ = sizeZ / 2
+      const halfY = (ref.dims.height / 10) / 2
+
+      const baseY = ref.staged ? halfY : (ref.position?.[1] ?? halfY)
+      if (baseY + halfY > palletH + 0.0005) return prev
+
+      const minX = -halfPW + halfX
+      const maxX = halfPW - halfX
+      const minZ = -halfPD + halfZ
+      const maxZ = halfPD - halfZ
+
+      const stepX = sizeX
+      const stepZ = sizeZ
+
+      const anchorX = ref.position?.[0] ?? minX
+      const anchorZ = ref.position?.[2] ?? minZ
+
+      const kx = Math.round((anchorX - minX) / stepX)
+      const kz = Math.round((anchorZ - minZ) / stepZ)
+      let originX = anchorX - kx * stepX
+      let originZ = anchorZ - kz * stepZ
+      while (originX < minX - 1e-6) originX += stepX
+      while (originX > minX + 1e-6) originX -= stepX
+      while (originZ < minZ - 1e-6) originZ += stepZ
+      while (originZ > minZ + 1e-6) originZ -= stepZ
+
+      const placed = prev.filter(b => !b.staged)
+
+      const footprintHalfExtents = (dims, rotation) => {
+        const rY = rotation?.[1] ?? 0
+        const qt = ((Math.round(rY / (Math.PI / 2)) % 4) + 4) % 4
+        const sw = qt % 2 === 1
+        const sX = (sw ? dims.width : dims.length) / 10
+        const sZ = (sw ? dims.length : dims.width) / 10
+        return [sX / 2, sZ / 2]
+      }
+
+      const overlaps3D = (a, b) => {
+        return (
+          Math.abs(a.x - b.x) < (a.hx + b.hx - 0.0005) &&
+          Math.abs(a.y - b.y) < (a.hy + b.hy - 0.0005) &&
+          Math.abs(a.z - b.z) < (a.hz + b.hz - 0.0005)
+        )
+      }
+
+      const candidate = { x: 0, y: baseY, z: 0, hx: halfX, hy: halfY, hz: halfZ }
+
+      const collides = (x, z) => {
+        candidate.x = x
+        candidate.z = z
+        for (const b of placed) {
+          const [bhx, bhz] = footprintHalfExtents(b.dims, b.rotation)
+          const bhy = (b.dims.height / 10) / 2
+          const bx = b.position?.[0] ?? 0
+          const by = b.position?.[1] ?? bhy
+          const bz = b.position?.[2] ?? 0
+          if (overlaps3D(candidate, { x: bx, y: by, z: bz, hx: bhx, hy: bhy, hz: bhz })) return true
+        }
+        return false
+      }
+
+      const newBoxes = []
+      const EPS = 0.0005
+      for (let z = originZ; z <= maxZ + EPS; z += stepZ) {
+        for (let x = originX; x <= maxX + EPS; x += stepX) {
+          if (collides(x, z)) continue
+          newBoxes.push({
+            id: _uid++,
+            dims: { ...ref.dims },
+            position: [x, baseY, z],
+            rotation: [...(ref.rotation ?? [0, 0, 0])],
+            staged: false,
+            colorIndex: ref.colorIndex,
+          })
+        }
+      }
+
+      return newBoxes.length ? [...prev, ...newBoxes] : prev
+    })
+  }, [palletDims])
+
+  const handleBoxContextMenu = useCallback((boxId, nativeEvent) => {
+    const x = nativeEvent?.clientX ?? 0
+    const y = nativeEvent?.clientY ?? 0
+    setSelectedId(boxId)
+    setContextMenu({ boxId, x, y })
+  }, [])
+
   // ── Rotate selected ────────────────────────────────────────────
   const handleRotate = useCallback((id, axis, dir) => {
     const STEP = Math.PI / 2
@@ -176,7 +293,7 @@ export default function CalculatorPage() {
 
   // OrbitControls config based on mode
   const isLockedMode = cameraMode !== 'free'
-  const controlsEnabled = orbitEnabled && !isDragging
+  const controlsEnabled = orbitEnabled && !isDragging && !contextMenu
 
   return (
     <div className="calc-root">
@@ -222,6 +339,24 @@ export default function CalculatorPage() {
           </div>
         )}
 
+        {contextMenu && (
+          <div
+            className="calc-context-menu"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <button
+              className="calc-context-btn"
+              onClick={() => {
+                handleFillLevel(contextMenu.boxId)
+                setContextMenu(null)
+              }}
+            >
+              Fill this level
+            </button>
+          </div>
+        )}
+
         <Canvas
           shadows="percentage"
           dpr={[1, 2]}
@@ -240,6 +375,7 @@ export default function CalculatorPage() {
               onDropToPallet={handleDropToPallet}
               heightWarning={heightWarning}
               onDragStateChange={setIsDragging}
+              onBoxContextMenu={handleBoxContextMenu}
             />
           </Suspense>
 
