@@ -1,0 +1,54 @@
+.calc-root {
+  width: 100vw; height: 100vh; overflow: hidden;
+  background: #0a0a0f; display: flex; position: relative;
+}
+
+/* Canvas area sits to the right of the 300px panel */
+.calc-canvas {
+  flex: 1;
+  margin-left: 300px;
+  position: relative;
+}
+
+/* HUD info bar */
+.calc-hud {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(12,12,22,0.88); backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+  padding: 8px 18px; pointer-events: none; z-index: 20;
+  font-family: 'Syne', sans-serif; font-size: 0.78rem; font-weight: 600;
+  color: #8888aa; letter-spacing: 0.03em; white-space: nowrap;
+}
+.calc-hud-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #6bcc7a; flex-shrink: 0;
+}
+
+/* Height warning banner */
+.calc-warn {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  background: rgba(200,30,30,0.92); backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,80,80,0.35); border-radius: 99px;
+  padding: 9px 24px; pointer-events: none; z-index: 20;
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.8rem;
+  letter-spacing: 0.06em; color: #fff;
+  animation: warnPulse 0.9s ease-in-out infinite alternate;
+}
+@keyframes warnPulse {
+  from { box-shadow: 0 0 0 0   rgba(220,50,50,0.55); }
+  to   { box-shadow: 0 0 0 14px rgba(220,50,50,0);   }
+}
+
+/* Empty state */
+.calc-empty {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; pointer-events: none; z-index: 5;
+}
+.calc-empty-icon { font-size: 3.2rem; opacity: 0.18; }
+.calc-empty-text {
+  font-family: 'Syne', sans-serif; font-size: 0.88rem;
+  color: #44445a; letter-spacing: 0.05em;
+}
