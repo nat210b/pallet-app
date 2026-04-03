@@ -1,7 +1,8 @@
 import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Grid, Environment, ContactShadows, Text } from '@react-three/drei'
+import { Grid, Environment, ContactShadows, Text3D } from '@react-three/drei'
 import * as THREE from 'three'
+import helvetiker from 'three/examples/fonts/helvetiker_regular.typeface.json'
 import DraggableBox from '../DraggableBox/DraggableBox'
 
 // Layout: pallet at origin, staging rack to the LEFT (negative X)
@@ -143,17 +144,19 @@ export default function PalletScene({
           </lineSegments>
 
           {/* "STAGING" label */}
-          <Text
+          <Text3D
+            font={helvetiker}
+            size={0.18}
+            height={0.02}
+            curveSegments={10}
+            bevelEnabled={false}
             position={[stagingCenterX - 0.3, 0.04, stagingAreaD / 2 + 0.2]}
             rotation={[-Math.PI / 2, 0, 0]}
-            fontSize={0.22}
-            color="#f5a623"
-            anchorX="center"
-            anchorY="middle"
-            font="https://fonts.gstatic.com/s/syne/v22/8vIS7w4qzmVxsWxjeFAph8O1.woff"
+            center
           >
             STAGING AREA — DRAG BOXES TO PALLET
-          </Text>
+            <meshStandardMaterial color="#f5a623" roughness={0.6} metalness={0.05} />
+          </Text3D>
         </>
       )}
 
