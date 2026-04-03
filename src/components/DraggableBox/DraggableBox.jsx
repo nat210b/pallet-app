@@ -17,18 +17,19 @@ export default function DraggableBox({
   id, position, rotation, dims, palletDims,
   isSelected, isStaged,
   onSelect, onMove, onDropToPallet,
+  onDragStateChange,
   colorIndex,
 }) {
   const groupRef = useRef()
   const dragging = useRef(false)
   const offset   = useRef(new THREE.Vector3())
   const livePos  = useRef(new THREE.Vector3(...position))
-  const wasOnPallet = useRef(!isStaged)
 
   const [hovered, setHovered] = useState(false)
-  const { camera, gl, raycaster, pointer } = useThree()
+  const [isDragging, setIsDragging] = useState(false)
+  const { camera, raycaster, pointer } = useThree()
 
-  useCursor(hovered)
+  useCursor(hovered || isDragging, isDragging ? 'grabbing' : 'pointer')
 
   // unit: 1 three.js unit = 10 cm
   const sx = dims.length / 10
@@ -62,25 +63,30 @@ export default function DraggableBox({
     if (!dragging.current) livePos.current.set(...position)
   }, [position])
 
+  useEffect(() => () => onDragStateChange?.(false), [onDragStateChange])
+
   const onPointerDown = useCallback((e) => {
     e.stopPropagation()
+    e.target.setPointerCapture?.(e.pointerId)
     onSelect(id)
     dragging.current = true
-    wasOnPallet.current = !isStaged
-    gl.domElement.style.cursor = 'grabbing'
+    setIsDragging(true)
+    onDragStateChange?.(true)
 
     // set drag plane at box Y level
     _dragPlane.constant = -livePos.current.y
     raycaster.setFromCamera(pointer, camera)
     raycaster.ray.intersectPlane(_dragPlane, _hit)
     offset.current.copy(_hit).sub(livePos.current)
-  }, [id, onSelect, isStaged, camera, gl, raycaster, pointer])
+  }, [id, onSelect, onDragStateChange, camera, raycaster, pointer])
 
   const onPointerUp = useCallback((e) => {
     e.stopPropagation()
+    e.target.releasePointerCapture?.(e.pointerId)
     if (!dragging.current) return
     dragging.current = false
-    gl.domElement.style.cursor = ''
+    setIsDragging(false)
+    onDragStateChange?.(false)
 
     const pos = livePos.current.toArray()
     const x = pos[0], z = pos[2]
@@ -100,7 +106,7 @@ export default function DraggableBox({
       // Return to staged position or move freely if already placed
       onMove(id, livePos.current.toArray())
     }
-  }, [id, onMove, onDropToPallet, gl, halfPW, halfPD, sx, sy, sz])
+  }, [id, onMove, onDropToPallet, onDragStateChange, halfPW, halfPD, sx, sy, sz])
 
   useFrame(() => {
     if (!groupRef.current) return

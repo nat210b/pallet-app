@@ -15,6 +15,7 @@ export default function PalletScene({
   selectedId, onSelect,
   onMove, onDropToPallet,
   heightWarning,
+  onDragStateChange,
 }) {
   const pw = palletDims.length / 10
   const ph = palletDims.height / 10
@@ -174,6 +175,7 @@ export default function PalletScene({
           onSelect={onSelect}
           onMove={onMove}
           onDropToPallet={onDropToPallet}
+          onDragStateChange={onDragStateChange}
           colorIndex={box.colorIndex}
         />
       ))}
@@ -192,6 +194,7 @@ export default function PalletScene({
           onSelect={onSelect}
           onMove={onMove}
           onDropToPallet={onDropToPallet}
+          onDragStateChange={onDragStateChange}
           colorIndex={box.colorIndex}
         />
       ))}

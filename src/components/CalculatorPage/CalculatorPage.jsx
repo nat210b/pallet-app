@@ -13,7 +13,7 @@ const DEFAULT_PALLET = { length: 120, width: 80, height: 150 }
 let _uid = 1
 
 // ── Camera controller: smoothly animates to preset positions ──────
-function CameraController({ mode, orbitEnabled, orbitRef }) {
+function CameraController({ mode, orbitRef }) {
   const { camera } = useThree()
   const targetPos = useRef(new THREE.Vector3(...CAMERA_PRESETS.free.position))
   const targetLook = useRef(new THREE.Vector3(...CAMERA_PRESETS.free.target))
@@ -47,6 +47,7 @@ export default function CalculatorPage() {
   const [selectedId,  setSelectedId]  = useState(null)
   const [cameraMode,  setCameraMode]  = useState('iso')
   const [orbitEnabled, setOrbitEnabled] = useState(true)
+  const [isDragging, setIsDragging] = useState(false)
 
   const orbitRef = useRef()
 
@@ -122,6 +123,7 @@ export default function CalculatorPage() {
 
   // OrbitControls config based on mode
   const isLockedMode = cameraMode !== 'free'
+  const controlsEnabled = orbitEnabled && !isDragging
 
   return (
     <div className="calc-root">
@@ -184,21 +186,21 @@ export default function CalculatorPage() {
               onMove={handleMove}
               onDropToPallet={handleDropToPallet}
               heightWarning={heightWarning}
+              onDragStateChange={setIsDragging}
             />
           </Suspense>
 
           {/* Camera animation controller */}
           <CameraController
             mode={cameraMode}
-            orbitEnabled={orbitEnabled}
             orbitRef={orbitRef}
           />
 
           <OrbitControls
             ref={orbitRef}
             makeDefault
-            enabled={orbitEnabled}
-            enableRotate={!isLockedMode || orbitEnabled}
+            enabled={controlsEnabled}
+            enableRotate={!isLockedMode || controlsEnabled}
             enablePan={true}
             enableZoom={true}
             enableDamping
