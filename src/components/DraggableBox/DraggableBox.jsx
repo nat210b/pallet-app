@@ -15,6 +15,7 @@ const _hit       = new THREE.Vector3()
 
 export default function DraggableBox({
   id, position, rotation, dims, palletDims,
+  snapTargets,
   isSelected, isStaged,
   onSelect, onMove, onDropToPallet,
   onDragStateChange,
@@ -52,11 +53,44 @@ export default function DraggableBox({
     [sx, sy, sz]
   )
 
+  const getFootprintHalfExtents = useCallback((boxDims, boxRotation) => {
+    const fx = boxDims.length / 10
+    const fz = boxDims.width / 10
+    const rotY = boxRotation?.[1] ?? 0
+    const quarterTurns = ((Math.round(rotY / (Math.PI / 2)) % 4) + 4) % 4
+    const swapped = quarterTurns % 2 === 1
+    const sizeX = swapped ? fz : fx
+    const sizeZ = swapped ? fx : fz
+    return [sizeX / 2, sizeZ / 2]
+  }, [])
+
+  const [selfHalfX, selfHalfZ] = useMemo(
+    () => getFootprintHalfExtents(dims, rotation),
+    [dims, rotation, getFootprintHalfExtents]
+  )
+
   // clamp to pallet footprint
   const clampToPallet = useCallback((x, z) => [
-    Math.max(-halfPW + sx / 2, Math.min(halfPW - sx / 2, x)),
-    Math.max(-halfPD + sz / 2, Math.min(halfPD - sz / 2, z)),
-  ], [halfPW, halfPD, sx, sz])
+    Math.max(-halfPW + selfHalfX, Math.min(halfPW - selfHalfX, x)),
+    Math.max(-halfPD + selfHalfZ, Math.min(halfPD - selfHalfZ, z)),
+  ], [halfPW, halfPD, selfHalfX, selfHalfZ])
+
+  const snapIn1D = useCallback((value, candidates, threshold) => {
+    let best = value
+    let bestDist = threshold
+    for (const c of candidates) {
+      const d = Math.abs(value - c)
+      if (d < bestDist) {
+        bestDist = d
+        best = c
+      }
+    }
+    return best
+  }, [])
+
+  const overlapAmount = useCallback((aMin, aMax, bMin, bMax) => {
+    return Math.max(0, Math.min(aMax, bMax) - Math.max(aMin, bMin))
+  }, [])
 
   // sync livePos from prop (when not dragging)
   useEffect(() => {
@@ -93,8 +127,8 @@ export default function DraggableBox({
 
     // Check if dropped inside pallet footprint
     const inPallet = (
-      Math.abs(x) <= halfPW - sx / 2 &&
-      Math.abs(z) <= halfPD - sz / 2
+      Math.abs(x) <= halfPW - selfHalfX &&
+      Math.abs(z) <= halfPD - selfHalfZ
     )
 
     if (inPallet) {
@@ -106,7 +140,7 @@ export default function DraggableBox({
       // Return to staged position or move freely if already placed
       onMove(id, livePos.current.toArray())
     }
-  }, [id, onMove, onDropToPallet, onDragStateChange, halfPW, halfPD, sx, sy, sz])
+  }, [id, onMove, onDropToPallet, onDragStateChange, halfPW, halfPD, selfHalfX, selfHalfZ, sy])
 
   useFrame(() => {
     if (!groupRef.current) return
@@ -120,7 +154,55 @@ export default function DraggableBox({
         // While dragging, if hovering pallet zone → snap to boundary
         const inPallet = Math.abs(rawX) <= halfPW && Math.abs(rawZ) <= halfPD
         if (inPallet) {
-          const [cx, cz] = clampToPallet(rawX, rawZ)
+          const SNAP_DIST = 0.12 // ~12cm (1 unit = 10cm)
+          const GAP = 0 // flush edges
+
+          let [cx, cz] = clampToPallet(rawX, rawZ)
+
+          // 1) Snap to pallet edges
+          cx = snapIn1D(cx, [-halfPW + selfHalfX, halfPW - selfHalfX], SNAP_DIST)
+          cz = snapIn1D(cz, [-halfPD + selfHalfZ, halfPD - selfHalfZ], SNAP_DIST)
+
+          // 2) Snap to nearby placed boxes (edge-to-edge) if ranges overlap on the other axis
+          const targets = Array.isArray(snapTargets) ? snapTargets : []
+          const selfZMin = cz - selfHalfZ
+          const selfZMax = cz + selfHalfZ
+          const selfXMin = cx - selfHalfX
+          const selfXMax = cx + selfHalfX
+
+          const minZOverlapForXSnap = Math.min(selfHalfZ * 2, 0.25) * 0.2
+          const minXOverlapForZSnap = Math.min(selfHalfX * 2, 0.25) * 0.2
+
+          const xCandidates = []
+          const zCandidates = []
+
+          for (const t of targets) {
+            if (!t || t.id === id) continue
+            const [tHalfX, tHalfZ] = getFootprintHalfExtents(t.dims, t.rotation)
+            const tx = t.position?.[0] ?? 0
+            const tz = t.position?.[2] ?? 0
+            const tXMin = tx - tHalfX
+            const tXMax = tx + tHalfX
+            const tZMin = tz - tHalfZ
+            const tZMax = tz + tHalfZ
+
+            const zOverlap = overlapAmount(selfZMin, selfZMax, tZMin, tZMax)
+            if (zOverlap > minZOverlapForXSnap) {
+              xCandidates.push((tXMax + GAP) + selfHalfX)
+              xCandidates.push((tXMin - GAP) - selfHalfX)
+            }
+
+            const xOverlap = overlapAmount(selfXMin, selfXMax, tXMin, tXMax)
+            if (xOverlap > minXOverlapForZSnap) {
+              zCandidates.push((tZMax + GAP) + selfHalfZ)
+              zCandidates.push((tZMin - GAP) - selfHalfZ)
+            }
+          }
+
+          cx = snapIn1D(cx, xCandidates, SNAP_DIST)
+          cz = snapIn1D(cz, zCandidates, SNAP_DIST)
+
+          ;[cx, cz] = clampToPallet(cx, cz)
           livePos.current.set(cx, livePos.current.y, cz)
         } else {
           livePos.current.set(rawX, livePos.current.y, rawZ)

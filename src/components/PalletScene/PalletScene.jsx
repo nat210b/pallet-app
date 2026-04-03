@@ -170,6 +170,7 @@ export default function PalletScene({
           rotation={box.rotation}
           dims={box.dims}
           palletDims={palletDims}
+          snapTargets={placed}
           isSelected={box.id === selectedId}
           isStaged={true}
           onSelect={onSelect}
@@ -189,6 +190,7 @@ export default function PalletScene({
           rotation={box.rotation}
           dims={box.dims}
           palletDims={palletDims}
+          snapTargets={placed}
           isSelected={box.id === selectedId}
           isStaged={false}
           onSelect={onSelect}
