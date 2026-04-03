@@ -1,0 +1,89 @@
+.ctb-root {
+  position: absolute; bottom: 0; left: 300px; right: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 20px;
+  background: rgba(8,8,14,0.92);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+/* Group divider */
+.ctb-divider {
+  width: 1px; height: 28px;
+  background: rgba(255,255,255,0.1);
+  margin: 0 4px; flex-shrink: 0;
+}
+
+/* Label */
+.ctb-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: #444460; margin-right: 2px; white-space: nowrap;
+}
+
+/* Base button */
+.ctb-btn {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px; padding: 7px 14px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: #8888aa; cursor: pointer;
+  transition: all 0.15s; white-space: nowrap;
+  font-family: 'DM Sans', sans-serif;
+  min-width: 64px;
+}
+.ctb-btn:hover {
+  background: rgba(245,166,35,0.1);
+  border-color: rgba(245,166,35,0.3);
+  color: #f5a623;
+}
+.ctb-btn.active {
+  background: rgba(245,166,35,0.15);
+  border-color: #f5a623;
+  color: #f5a623;
+}
+.ctb-btn-icon { font-size: 1rem; line-height: 1; }
+.ctb-btn-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.04em; }
+
+/* Toggle button (mouse mode) */
+.ctb-toggle {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 16px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: #8888aa; cursor: pointer;
+  transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+}
+.ctb-toggle:hover {
+  background: rgba(100,180,255,0.1);
+  border-color: rgba(100,180,255,0.3);
+  color: #6bb4ff;
+}
+.ctb-toggle.on {
+  background: rgba(100,180,255,0.12);
+  border-color: #6bb4ff;
+  color: #6bb4ff;
+}
+.ctb-toggle-dot {
+  width: 28px; height: 16px; border-radius: 99px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  position: relative; transition: background 0.2s;
+  flex-shrink: 0;
+}
+.ctb-toggle.on .ctb-toggle-dot {
+  background: rgba(100,180,255,0.3);
+  border-color: #6bb4ff;
+}
+.ctb-toggle-knob {
+  position: absolute; top: 2px; left: 2px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #8888aa;
+  transition: left 0.2s, background 0.2s;
+}
+.ctb-toggle.on .ctb-toggle-knob {
+  left: 14px; background: #6bb4ff;
+}
+.ctb-toggle-text { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; }

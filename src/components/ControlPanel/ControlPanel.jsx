@@ -2,20 +2,22 @@ import { useNavigate } from 'react-router-dom'
 import './ControlPanelStyle.css'
 
 const ROTATIONS = [
-  { label: '+X 90°', axis: 'x', dir:  1 },
-  { label: '-X 90°', axis: 'x', dir: -1 },
-  { label: '+Y 90°', axis: 'y', dir:  1 },
-  { label: '-Y 90°', axis: 'y', dir: -1 },
-  { label: '+Z 90°', axis: 'z', dir:  1 },
-  { label: '-Z 90°', axis: 'z', dir: -1 },
+  { label: '+X', axis: 'x', dir:  1 },
+  { label: '-X', axis: 'x', dir: -1 },
+  { label: '+Y', axis: 'y', dir:  1 },
+  { label: '-Y', axis: 'y', dir: -1 },
+  { label: '+Z', axis: 'z', dir:  1 },
+  { label: '-Z', axis: 'z', dir: -1 },
 ]
 
 export default function ControlPanel({
   boxDims,    setBoxDims,
   palletDims, setPalletDims,
-  onAddBox,   onClearAll,
+  boxAmount,  setBoxAmount,
+  onStageBoxes, onClearAll,
+  stagedCount, placedCount,
   selectedId, onRotate,
-  boxCount,   utilPct, heightWarning,
+  utilPct, heightWarning,
 }) {
   const navigate = useNavigate()
 
@@ -28,7 +30,7 @@ export default function ControlPanel({
         <button className="cp-back" onClick={() => navigate('/')}>← Back</button>
       </div>
 
-      {/* Box Dimensions */}
+      {/* Box Setup */}
       <div className="cp-section">
         <div className="cp-stitle">Box Dimensions (cm)</div>
         {['length', 'width', 'height'].map(d => (
@@ -37,14 +39,22 @@ export default function ControlPanel({
             <input
               type="number" min="1" max="300"
               value={boxDims[d]}
-              onChange={e =>
-                setBoxDims(prev => ({ ...prev, [d]: Math.max(1, Number(e.target.value)) }))
-              }
+              onChange={e => setBoxDims(p => ({ ...p, [d]: Math.max(1, Number(e.target.value)) }))}
             />
           </div>
         ))}
-        <button className="cp-btn-add" onClick={onAddBox}>＋ Add Box</button>
-        <button className="cp-btn-clear" disabled={boxCount === 0} onClick={onClearAll}>
+        <div className="cp-field">
+          <label>Amount of Boxes</label>
+          <input
+            type="number" min="1" max="200"
+            value={boxAmount}
+            onChange={e => setBoxAmount(Math.max(1, Number(e.target.value)))}
+          />
+        </div>
+        <button className="cp-btn-add" onClick={onStageBoxes}>
+          ＋ Stage {boxAmount} Box{boxAmount !== 1 ? 'es' : ''}
+        </button>
+        <button className="cp-btn-clear" disabled={stagedCount + placedCount === 0} onClick={onClearAll}>
           ✕ Clear All
         </button>
       </div>
@@ -58,9 +68,7 @@ export default function ControlPanel({
             <input
               type="number" min="1" max="600"
               value={palletDims[d]}
-              onChange={e =>
-                setPalletDims(prev => ({ ...prev, [d]: Math.max(1, Number(e.target.value)) }))
-              }
+              onChange={e => setPalletDims(p => ({ ...p, [d]: Math.max(1, Number(e.target.value)) }))}
             />
           </div>
         ))}
@@ -72,12 +80,12 @@ export default function ControlPanel({
         <div className="cp-rot-grid">
           {ROTATIONS.map(r => (
             <button
-              key={r.label}
+              key={r.label + r.axis}
               className="cp-rot-btn"
               disabled={!selectedId}
               onClick={() => onRotate(selectedId, r.axis, r.dir)}
             >
-              {r.label}
+              {r.label} 90°
             </button>
           ))}
         </div>
@@ -89,8 +97,12 @@ export default function ControlPanel({
       </div>
       <div className="cp-stats">
         <div className="cp-stat">
-          <div className="cp-stat-lbl">Boxes on Pallet</div>
-          <div className="cp-stat-val gold">{boxCount}</div>
+          <div className="cp-stat-lbl">Staged (unplaced)</div>
+          <div className="cp-stat-val gold">{stagedCount}</div>
+        </div>
+        <div className="cp-stat">
+          <div className="cp-stat-lbl">Placed on Pallet</div>
+          <div className="cp-stat-val green">{placedCount}</div>
         </div>
         <div className="cp-stat">
           <div className="cp-stat-lbl">Volume Utilization</div>
@@ -105,8 +117,7 @@ export default function ControlPanel({
       </div>
 
       <div className="cp-hint">
-        Click a box to select · Drag to reposition · Use rotate buttons to change
-        orientation · Boxes are clamped inside pallet boundaries
+        Set amount → Stage boxes → Drag from staging area into pallet · Click to select · Use rotate buttons to flip
       </div>
     </div>
   )

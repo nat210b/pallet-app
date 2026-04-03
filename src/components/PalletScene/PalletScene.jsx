@@ -1,20 +1,26 @@
 import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Grid, Environment, ContactShadows } from '@react-three/drei'
+import { Grid, Environment, ContactShadows, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import DraggableBox from '../DraggableBox/DraggableBox'
 
+// Layout: pallet at origin, staging rack to the LEFT (negative X)
+const STAGING_X_OFFSET = -3.5   // how far left the staging area is
+const STAGING_COLS     = 3      // boxes per row in staging
+const STAGING_GAP      = 0.12   // gap between staged boxes
+
 export default function PalletScene({
-  boxes, palletDims, selectedId, onSelect, onMove, heightWarning,
+  boxes, palletDims,
+  selectedId, onSelect,
+  onMove, onDropToPallet,
+  heightWarning,
 }) {
-  // convert cm → Three.js units (1 unit = 10 cm)
   const pw = palletDims.length / 10
   const ph = palletDims.height / 10
   const pd = palletDims.width  / 10
 
   const warnRef = useRef()
 
-  // pulse the warning plane opacity
   useFrame(({ clock }) => {
     if (!warnRef.current) return
     warnRef.current.material.opacity = heightWarning
@@ -22,12 +28,9 @@ export default function PalletScene({
       : 0
   })
 
-  // pallet top decorative planks
   const planks = useMemo(() =>
-    [-pw * 0.33, 0, pw * 0.33].map(x => [x, 0.001, 0])
-  , [pw])
+    [-pw * 0.33, 0, pw * 0.33].map(x => [x, 0.001, 0]), [pw])
 
-  // 4 corner support feet
   const feet = useMemo(() => [
     [-pw / 2 + 0.12, -0.08, -pd / 2 + 0.12],
     [ pw / 2 - 0.12, -0.08, -pd / 2 + 0.12],
@@ -35,66 +38,69 @@ export default function PalletScene({
     [ pw / 2 - 0.12, -0.08,  pd / 2 - 0.12],
   ], [pw, pd])
 
-  // reuse geometries
-  const boundGeo = useMemo(
-    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(pw, ph, pd)),
-    [pw, ph, pd]
-  )
-  const warnGeo = useMemo(() => new THREE.PlaneGeometry(pw, pd), [pw, pd])
-  const limLineGeo = useMemo(
-    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(pw, 0.004, pd)),
-    [pw, pd]
-  )
+  const boundGeo   = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(pw, ph, pd)), [pw, ph, pd])
+  const warnGeo    = useMemo(() => new THREE.PlaneGeometry(pw, pd), [pw, pd])
+  const limLineGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(pw, 0.004, pd)), [pw, pd])
+
+  // Separate staged vs placed boxes
+  const staged = boxes.filter(b => b.staged)
+  const placed = boxes.filter(b => !b.staged)
+
+  // Build staging grid positions for staged boxes
+  // Each box gets a slot in a grid to the left of the pallet
+  const stagingPositions = useMemo(() => {
+    return staged.map((box, i) => {
+      const col = i % STAGING_COLS
+      const row = Math.floor(i / STAGING_COLS)
+      const sx  = box.dims.length / 10
+      const sy  = box.dims.height / 10
+      const sz  = box.dims.width  / 10
+      const stagingX = STAGING_X_OFFSET - pw / 2 - (sx + STAGING_GAP) * (STAGING_COLS - 1 - col)
+      const stagingZ = (row - 1) * (sz + STAGING_GAP)
+      return [stagingX, sy / 2, stagingZ]
+    })
+  }, [staged, pw])
+
+  // Staging area backdrop dimensions
+  const maxStagedRows = Math.ceil(staged.length / STAGING_COLS)
+  const stagingAreaW  = pw / 2 + Math.abs(STAGING_X_OFFSET) + 1.5
+  const stagingAreaD  = Math.max(pd, maxStagedRows * 1.5 + 1)
+  const stagingCenterX = STAGING_X_OFFSET - pw / 2 - stagingAreaW / 2 + 0.8
 
   return (
     <>
       {/* Lighting */}
-      <ambientLight intensity={0.45} />
+      <ambientLight intensity={0.5} />
       <directionalLight
-        position={[10, 14, 8]} intensity={1.1}
-        castShadow shadow-mapSize={[1024, 1024]}
+        position={[10, 14, 8]} intensity={1.1} castShadow
+        shadow-mapSize={[1024, 1024]}
         shadow-camera-near={0.5} shadow-camera-far={80}
-        shadow-camera-left={-15} shadow-camera-right={15}
-        shadow-camera-top={15} shadow-camera-bottom={-15}
+        shadow-camera-left={-20} shadow-camera-right={20}
+        shadow-camera-top={20} shadow-camera-bottom={-20}
       />
       <directionalLight position={[-8, 10, -6]} intensity={0.35} />
       <Environment preset="city" />
 
       {/* Floor grid */}
       <Grid
-        position={[0, -0.13, 0]}
-        args={[40, 40]}
-        infiniteGrid
-        cellSize={0.5}
-        cellColor="#1e1e2a"
-        cellThickness={0.5}
-        sectionSize={2.5}
-        sectionColor="#2a2a3c"
-        sectionThickness={0.9}
-        fadeDistance={24}
+        position={[0, -0.13, 0]} args={[60, 60]} infiniteGrid
+        cellSize={0.5} cellColor="#1a1a28" cellThickness={0.5}
+        sectionSize={2.5} sectionColor="#252535" sectionThickness={0.9}
+        fadeDistance={28}
       />
+      <ContactShadows position={[0, -0.12, 0]} opacity={0.45} scale={30} blur={2.5} far={6} />
 
-      {/* Floor contact shadow */}
-      <ContactShadows
-        position={[0, -0.12, 0]}
-        opacity={0.5} scale={22} blur={2.5} far={6}
-      />
-
-      {/* ── Pallet base platform ── */}
+      {/* ── PALLET ── */}
       <mesh position={[0, -0.06, 0]} receiveShadow>
         <boxGeometry args={[pw, 0.12, pd]} />
         <meshStandardMaterial color="#8B6C14" roughness={0.85} metalness={0.04} />
       </mesh>
-
-      {/* Top planks (visual stripes) */}
       {planks.map(([x, y, z], i) => (
         <mesh key={i} position={[x, y, z]}>
           <boxGeometry args={[0.055, 0.013, pd]} />
           <meshStandardMaterial color="#6B4F0E" roughness={0.9} />
         </mesh>
       ))}
-
-      {/* Corner feet */}
       {feet.map(([x, y, z], i) => (
         <mesh key={i} position={[x, y, z]}>
           <boxGeometry args={[0.13, 0.08, 0.13]} />
@@ -102,39 +108,75 @@ export default function PalletScene({
         </mesh>
       ))}
 
-      {/* ── Pallet boundary wireframe ── */}
+      {/* Pallet boundary wireframe */}
       <lineSegments geometry={boundGeo} position={[0, ph / 2, 0]}>
-        <lineBasicMaterial
-          color={heightWarning ? '#ff5555' : 'rgba(255,255,255,0.06)'}
-        />
+        <lineBasicMaterial color={heightWarning ? '#ff5555' : 'rgba(255,255,255,0.06)'} />
       </lineSegments>
 
-      {/* ── Height limit line (always visible) ── */}
+      {/* Height limit line */}
       <lineSegments geometry={limLineGeo} position={[0, ph, 0]}>
-        <lineBasicMaterial
-          color={heightWarning ? '#ff3333' : 'rgba(255,80,80,0.22)'}
-          linewidth={2}
-        />
+        <lineBasicMaterial color={heightWarning ? '#ff3333' : 'rgba(255,80,80,0.2)'} linewidth={2} />
       </lineSegments>
 
-      {/* ── Warning plane (pulsing) ── */}
-      <mesh
-        ref={warnRef}
-        geometry={warnGeo}
-        position={[0, ph, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-      >
-        <meshBasicMaterial
-          color="#ff2222"
-          transparent
-          opacity={0}
-          side={THREE.DoubleSide}
-          depthWrite={false}
-        />
+      {/* Warning plane */}
+      <mesh ref={warnRef} geometry={warnGeo} position={[0, ph, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <meshBasicMaterial color="#ff2222" transparent opacity={0} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
 
-      {/* ── Boxes ── */}
-      {boxes.map((box, i) => (
+      {/* ── STAGING AREA ── */}
+      {staged.length > 0 && (
+        <>
+          {/* Staging floor mat */}
+          <mesh
+            position={[stagingCenterX - 0.3, -0.11, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            receiveShadow
+          >
+            <planeGeometry args={[stagingAreaW, stagingAreaD]} />
+            <meshStandardMaterial color="#1a1a2e" roughness={1} transparent opacity={0.7} />
+          </mesh>
+
+          {/* Staging border */}
+          <lineSegments position={[stagingCenterX - 0.3, 0, 0]}>
+            <edgesGeometry args={[new THREE.BoxGeometry(stagingAreaW, 0.01, stagingAreaD)]} />
+            <lineBasicMaterial color="rgba(245,166,35,0.25)" />
+          </lineSegments>
+
+          {/* "STAGING" label */}
+          <Text
+            position={[stagingCenterX - 0.3, 0.04, stagingAreaD / 2 + 0.2]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            fontSize={0.22}
+            color="#f5a623"
+            anchorX="center"
+            anchorY="middle"
+            font="https://fonts.gstatic.com/s/syne/v22/8vIS7w4qzmVxsWxjeFAph8O1.woff"
+          >
+            STAGING AREA — DRAG BOXES TO PALLET
+          </Text>
+        </>
+      )}
+
+      {/* ── STAGED BOXES ── */}
+      {staged.map((box, i) => (
+        <DraggableBox
+          key={box.id}
+          id={box.id}
+          position={stagingPositions[i] || box.position}
+          rotation={box.rotation}
+          dims={box.dims}
+          palletDims={palletDims}
+          isSelected={box.id === selectedId}
+          isStaged={true}
+          onSelect={onSelect}
+          onMove={onMove}
+          onDropToPallet={onDropToPallet}
+          colorIndex={box.colorIndex}
+        />
+      ))}
+
+      {/* ── PLACED BOXES ── */}
+      {placed.map((box) => (
         <DraggableBox
           key={box.id}
           id={box.id}
@@ -143,9 +185,11 @@ export default function PalletScene({
           dims={box.dims}
           palletDims={palletDims}
           isSelected={box.id === selectedId}
+          isStaged={false}
           onSelect={onSelect}
           onMove={onMove}
-          colorIndex={i}
+          onDropToPallet={onDropToPallet}
+          colorIndex={box.colorIndex}
         />
       ))}
     </>

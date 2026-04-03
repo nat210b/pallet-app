@@ -3,34 +3,48 @@
   background: #0a0a0f; display: flex; position: relative;
 }
 
-/* Canvas area sits to the right of the 300px panel */
 .calc-canvas {
   flex: 1;
   margin-left: 300px;
+  margin-bottom: 60px;   /* room for bottom toolbar */
   position: relative;
 }
 
 /* HUD info bar */
 .calc-hud {
-  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
   display: flex; align-items: center; gap: 10px;
   background: rgba(12,12,22,0.88); backdrop-filter: blur(10px);
   border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
-  padding: 8px 18px; pointer-events: none; z-index: 20;
-  font-family: 'Syne', sans-serif; font-size: 0.78rem; font-weight: 600;
+  padding: 7px 18px; pointer-events: none; z-index: 20;
+  font-family: 'Syne', sans-serif; font-size: 0.76rem; font-weight: 600;
   color: #8888aa; letter-spacing: 0.03em; white-space: nowrap;
 }
 .calc-hud-dot {
   width: 7px; height: 7px; border-radius: 50%;
   background: #6bcc7a; flex-shrink: 0;
+  animation: hudBlink 2s ease-in-out infinite;
+}
+@keyframes hudBlink {
+  0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+}
+
+/* Camera mode badge */
+.calc-cam-badge {
+  position: absolute; top: 14px; right: 14px; z-index: 20;
+  background: rgba(12,12,22,0.88); backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+  padding: 5px 12px; pointer-events: none;
+  font-family: 'Syne', sans-serif; font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: #f5a623;
 }
 
 /* Height warning banner */
 .calc-warn {
-  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
   background: rgba(200,30,30,0.92); backdrop-filter: blur(8px);
   border: 1px solid rgba(255,80,80,0.35); border-radius: 99px;
-  padding: 9px 24px; pointer-events: none; z-index: 20;
+  padding: 8px 22px; pointer-events: none; z-index: 20;
   font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.8rem;
   letter-spacing: 0.06em; color: #fff;
   animation: warnPulse 0.9s ease-in-out infinite alternate;
@@ -47,8 +61,8 @@
   align-items: center; justify-content: center;
   gap: 10px; pointer-events: none; z-index: 5;
 }
-.calc-empty-icon { font-size: 3.2rem; opacity: 0.18; }
+.calc-empty-icon { font-size: 3rem; opacity: 0.15; }
 .calc-empty-text {
-  font-family: 'Syne', sans-serif; font-size: 0.88rem;
+  font-family: 'Syne', sans-serif; font-size: 0.86rem;
   color: #44445a; letter-spacing: 0.05em;
 }
