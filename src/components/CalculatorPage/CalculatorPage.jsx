@@ -69,6 +69,59 @@ export default function CalculatorPage() {
     return Math.max(...placedBoxes.map(b => b.position[1] + b.dims.height / 10 / 2))
   }, [placedBoxes])
 
+  const maxLevels = useMemo(() => {
+    if (!placedBoxes.length) return 0
+
+    const EPS = 0.02
+
+    const footprintHalfExtents = (dims, rotation) => {
+      const fx = dims.length / 10
+      const fz = dims.width / 10
+      const rotY = rotation?.[1] ?? 0
+      const quarterTurns = ((Math.round(rotY / (Math.PI / 2)) % 4) + 4) % 4
+      const swapped = quarterTurns % 2 === 1
+      const sizeX = swapped ? fz : fx
+      const sizeZ = swapped ? fx : fz
+      return [sizeX / 2, sizeZ / 2]
+    }
+
+    const overlapXZ = (a, b) => {
+      const [aHalfX, aHalfZ] = footprintHalfExtents(a.dims, a.rotation)
+      const [bHalfX, bHalfZ] = footprintHalfExtents(b.dims, b.rotation)
+      const ax = a.position[0], az = a.position[2]
+      const bx = b.position[0], bz = b.position[2]
+      return (
+        Math.abs(ax - bx) < (aHalfX + bHalfX - 0.0005) &&
+        Math.abs(az - bz) < (aHalfZ + bHalfZ - 0.0005)
+      )
+    }
+
+    const boxesSorted = placedBoxes.map(b => {
+      const halfY = (b.dims.height / 10) / 2
+      const y = b.position[1]
+      return { ...b, _bottom: y - halfY, _top: y + halfY }
+    }).sort((a, b) => a._bottom - b._bottom)
+
+    const levelById = new Map()
+    let best = 1
+
+    for (const b of boxesSorted) {
+      let level = 1
+      for (const a of boxesSorted) {
+        if (a === b) break
+        if (!overlapXZ(a, b)) continue
+        if (Math.abs(b._bottom - a._top) <= EPS) {
+          const aLevel = levelById.get(a.id) ?? 1
+          level = Math.max(level, aLevel + 1)
+        }
+      }
+      levelById.set(b.id, level)
+      best = Math.max(best, level)
+    }
+
+    return best
+  }, [placedBoxes])
+
   const heightWarning = maxStackY > palletDims.height / 10
 
   const utilPct = useMemo(() => {
@@ -157,7 +210,7 @@ export default function CalculatorPage() {
         ) : (
           <div className="calc-hud">
             <div className="calc-hud-dot" />
-            {stagedBoxes.length} staged · {placedBoxes.length} placed · {utilPct}% utilized
+            {stagedBoxes.length} staged · {placedBoxes.length} placed · {maxLevels} levels · {utilPct}% utilized
           </div>
         )}
 

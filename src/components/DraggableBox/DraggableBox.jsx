@@ -68,6 +68,7 @@ export default function DraggableBox({
     () => getFootprintHalfExtents(dims, rotation),
     [dims, rotation, getFootprintHalfExtents]
   )
+  const selfHalfY = sy / 2
 
   // clamp to pallet footprint
   const clampToPallet = useCallback((x, z) => [
@@ -91,6 +92,42 @@ export default function DraggableBox({
   const overlapAmount = useCallback((aMin, aMax, bMin, bMax) => {
     return Math.max(0, Math.min(aMax, bMax) - Math.max(aMin, bMin))
   }, [])
+
+  const computeNonOverlappingY = useCallback((x, z) => {
+    const targets = Array.isArray(snapTargets) ? snapTargets : []
+    const EPS = 0.0005
+    let y = selfHalfY // pallet surface (y=0) + half height
+
+    for (let iter = 0; iter < 20; iter++) {
+      let nextY = y
+      let collided = false
+
+      for (const t of targets) {
+        if (!t || t.id === id) continue
+        const [tHalfX, tHalfZ] = getFootprintHalfExtents(t.dims, t.rotation)
+        const tHalfY = (t.dims.height / 10) / 2
+        const tx = t.position?.[0] ?? 0
+        const ty = t.position?.[1] ?? tHalfY
+        const tz = t.position?.[2] ?? 0
+
+        const overlapX = Math.abs(x - tx) < (selfHalfX + tHalfX - EPS)
+        const overlapZ = Math.abs(z - tz) < (selfHalfZ + tHalfZ - EPS)
+        const overlapY = Math.abs(y - ty) < (selfHalfY + tHalfY - EPS)
+
+        if (overlapX && overlapZ && overlapY) {
+          collided = true
+          const tTop = ty + tHalfY
+          nextY = Math.max(nextY, tTop + selfHalfY)
+        }
+      }
+
+      if (!collided) break
+      if (nextY === y) break
+      y = nextY
+    }
+
+    return y
+  }, [snapTargets, id, getFootprintHalfExtents, selfHalfX, selfHalfY, selfHalfZ])
 
   // sync livePos from prop (when not dragging)
   useEffect(() => {
@@ -132,15 +169,13 @@ export default function DraggableBox({
     )
 
     if (inPallet) {
-      // Snap Y to pallet surface (y = half height)
-      const snappedY = sy / 2
-      livePos.current.y = snappedY
-      onDropToPallet(id, [x, snappedY, z])
+      // Y is continuously adjusted while dragging (stacking + collision avoidance)
+      onDropToPallet(id, [x, livePos.current.y, z])
     } else {
       // Return to staged position or move freely if already placed
       onMove(id, livePos.current.toArray())
     }
-  }, [id, onMove, onDropToPallet, onDragStateChange, halfPW, halfPD, selfHalfX, selfHalfZ, sy])
+  }, [id, onMove, onDropToPallet, onDragStateChange, halfPW, halfPD, selfHalfX, selfHalfZ])
 
   useFrame(() => {
     if (!groupRef.current) return
@@ -203,7 +238,8 @@ export default function DraggableBox({
           cz = snapIn1D(cz, zCandidates, SNAP_DIST)
 
           ;[cx, cz] = clampToPallet(cx, cz)
-          livePos.current.set(cx, livePos.current.y, cz)
+          const cy = computeNonOverlappingY(cx, cz)
+          livePos.current.set(cx, cy, cz)
         } else {
           livePos.current.set(rawX, livePos.current.y, rawZ)
         }
