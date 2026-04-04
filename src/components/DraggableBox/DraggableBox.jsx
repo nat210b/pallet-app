@@ -50,7 +50,6 @@ export default function DraggableBox({
   const halfPD = palletDims.width  / 10 / 2
 
   const color   = PALETTE[colorIndex % PALETTE.length]
-  const opacity = isStaged ? 0.55 : 0.92
   const edgeClr = isSelected ? '#ffffff' : isStaged ? '#555577' : hovered ? '#9999bb' : '#2a2a3a'
   const emissiveIntensity = isSelected ? 0.28 : hovered ? 0.1 : 0
 
@@ -257,7 +256,8 @@ export default function DraggableBox({
           metalness={0.06}
           emissive={color}
           emissiveIntensity={emissiveIntensity}
-          transparent opacity={opacity}
+          transparent={false}
+          opacity={1}
         />
       </mesh>
 

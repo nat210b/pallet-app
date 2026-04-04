@@ -297,6 +297,8 @@ export default function CalculatorPage() {
   // OrbitControls config based on mode
   const isLockedMode = cameraMode !== 'free'
   const controlsEnabled = orbitEnabled && !isDragging && !contextMenu
+  const getRotateGlyph = useCallback((dir) => (dir === 1 ? '↺' : '↻'), [])
+  const axisLabel = useCallback((axis) => String(axis ?? '').toUpperCase(), [])
 
   return (
     <div className="calc-root">
@@ -354,27 +356,33 @@ export default function CalculatorPage() {
             <div className="calc-ctx-rot-grid">
               <button className="calc-ctx-rot-btn"
                 onClick={() => { handleRotate(contextMenu.boxId, 'x',  1); setContextMenu(null) }}>
-                +X
+                <span className="calc-ctx-rot-icon">{getRotateGlyph(1)}</span>
+                <span className="calc-ctx-rot-axis">{axisLabel('x')}</span>
               </button>
               <button className="calc-ctx-rot-btn"
                 onClick={() => { handleRotate(contextMenu.boxId, 'x', -1); setContextMenu(null) }}>
-                -X
+                <span className="calc-ctx-rot-icon">{getRotateGlyph(-1)}</span>
+                <span className="calc-ctx-rot-axis">{axisLabel('x')}</span>
               </button>
               <button className="calc-ctx-rot-btn"
                 onClick={() => { handleRotate(contextMenu.boxId, 'y',  1); setContextMenu(null) }}>
-                +Y
+                <span className="calc-ctx-rot-icon">{getRotateGlyph(1)}</span>
+                <span className="calc-ctx-rot-axis">{axisLabel('y')}</span>
               </button>
               <button className="calc-ctx-rot-btn"
                 onClick={() => { handleRotate(contextMenu.boxId, 'y', -1); setContextMenu(null) }}>
-                -Y
+                <span className="calc-ctx-rot-icon">{getRotateGlyph(-1)}</span>
+                <span className="calc-ctx-rot-axis">{axisLabel('y')}</span>
               </button>
               <button className="calc-ctx-rot-btn"
                 onClick={() => { handleRotate(contextMenu.boxId, 'z',  1); setContextMenu(null) }}>
-                +Z
+                <span className="calc-ctx-rot-icon">{getRotateGlyph(1)}</span>
+                <span className="calc-ctx-rot-axis">{axisLabel('z')}</span>
               </button>
               <button className="calc-ctx-rot-btn"
                 onClick={() => { handleRotate(contextMenu.boxId, 'z', -1); setContextMenu(null) }}>
-                -Z
+                <span className="calc-ctx-rot-icon">{getRotateGlyph(-1)}</span>
+                <span className="calc-ctx-rot-axis">{axisLabel('z')}</span>
               </button>
             </div>
 

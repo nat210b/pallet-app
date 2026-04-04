@@ -113,16 +113,31 @@
   font-family: 'Syne', sans-serif;
   font-size: 0.7rem;
   font-weight: 700;
-  padding: 8px 4px;
+  padding: 8px 6px;
   cursor: pointer;
   text-align: center;
   transition: all 0.15s;
   white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
 }
 .calc-ctx-rot-btn:hover {
   background: rgba(245,166,35,0.18);
   border-color: rgba(245,166,35,0.5);
   color: #f5a623;
+}
+
+.calc-ctx-rot-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.calc-ctx-rot-axis {
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  opacity: 0.9;
 }
 
 /* Action buttons */

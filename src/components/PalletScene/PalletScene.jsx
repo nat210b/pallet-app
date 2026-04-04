@@ -43,8 +43,70 @@ export default function PalletScene({
   const warnGeo    = useMemo(() => new THREE.PlaneGeometry(pw, pd), [pw, pd])
   const limLineGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(pw, 0.004, pd)), [pw, pd])
 
-  const staged = boxes.filter(b => b.staged)
-  const placed = boxes.filter(b => !b.staged)
+  const staged = useMemo(() => boxes.filter(b => b.staged), [boxes])
+  const placed = useMemo(() => boxes.filter(b => !b.staged), [boxes])
+
+  const levelById = useMemo(() => {
+    if (!placed.length) return new Map()
+
+    const euler = new THREE.Euler(0, 0, 0, 'XYZ')
+    const m4 = new THREE.Matrix4()
+    const m3 = new THREE.Matrix3()
+
+    const getRotatedHalfExtents = (dims, rot) => {
+      const hx = dims.length / 10 / 2
+      const hy = dims.height / 10 / 2
+      const hz = dims.width / 10 / 2
+      const rx = rot?.[0] ?? 0
+      const ry = rot?.[1] ?? 0
+      const rz = rot?.[2] ?? 0
+
+      euler.set(rx, ry, rz, 'XYZ')
+      m4.makeRotationFromEuler(euler)
+      m3.setFromMatrix4(m4)
+
+      // Matrix3.elements is column-major: [ r11 r21 r31 r12 r22 r32 r13 r23 r33 ]
+      const el = m3.elements
+      const r11 = el[0], r12 = el[3], r13 = el[6]
+      const r21 = el[1], r22 = el[4], r23 = el[7]
+      const r31 = el[2], r32 = el[5], r33 = el[8]
+
+      const ex = Math.abs(r11) * hx + Math.abs(r12) * hy + Math.abs(r13) * hz
+      const ey = Math.abs(r21) * hx + Math.abs(r22) * hy + Math.abs(r23) * hz
+      const ez = Math.abs(r31) * hx + Math.abs(r32) * hy + Math.abs(r33) * hz
+      return [ex, ey, ez]
+    }
+
+    const EPS_Y = 0.02
+    const placedSorted = placed.map(b => {
+      const [, hy] = getRotatedHalfExtents(b.dims, b.rotation)
+      return { ...b, _bottom: b.position[1] - hy, _top: b.position[1] + hy }
+    }).sort((a, b) => a._bottom - b._bottom)
+
+    const overlapXZ = (a, b) => {
+      const [aHX, , aHZ] = getRotatedHalfExtents(a.dims, a.rotation)
+      const [bHX, , bHZ] = getRotatedHalfExtents(b.dims, b.rotation)
+      return (
+        Math.abs(a.position[0] - b.position[0]) < (aHX + bHX - 0.0005) &&
+        Math.abs(a.position[2] - b.position[2]) < (aHZ + bHZ - 0.0005)
+      )
+    }
+
+    const levels = new Map()
+    for (const b of placedSorted) {
+      let level = 1
+      for (const a of placedSorted) {
+        if (a === b) break
+        if (!overlapXZ(a, b)) continue
+        if (Math.abs(b._bottom - a._top) <= EPS_Y) {
+          level = Math.max(level, (levels.get(a.id) ?? 1) + 1)
+        }
+      }
+      levels.set(b.id, level)
+    }
+
+    return levels
+  }, [placed])
 
   const stagingPositions = useMemo(() => {
     return staged.map((box, i) => {
@@ -198,7 +260,7 @@ export default function PalletScene({
           onDropToPallet={onDropToPallet}
           onDragStateChange={onDragStateChange}
           onContextMenu={onBoxContextMenu}
-          colorIndex={box.colorIndex}
+          colorIndex={(levelById.get(box.id) ?? 1) - 1}
         />
       ))}
     </>
