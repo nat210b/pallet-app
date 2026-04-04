@@ -13,6 +13,10 @@ const DEFAULT_PALLET = { length: 120, width: 80, height: 150 }
 let _uid = 1
 
 // ── Camera controller: smoothly animates to preset positions ──────
+const _aabbEuler = new THREE.Euler(0, 0, 0, 'XYZ')
+const _aabbM4 = new THREE.Matrix4()
+const _aabbM3 = new THREE.Matrix3()
+
 function CameraController({ mode, orbitRef }) {
   const { camera } = useThree()
   const targetPos = useRef(new THREE.Vector3(...CAMERA_PRESETS.free.position))
@@ -89,9 +93,20 @@ export default function CalculatorPage() {
     const rx = rot?.[0] ?? 0
     const ry = rot?.[1] ?? 0
     const rz = rot?.[2] ?? 0
-    const ex = Math.abs(Math.cos(ry)*Math.cos(rz))*hx + Math.abs(-Math.sin(ry))*hy + Math.abs(Math.cos(ry)*Math.sin(rz))*hz
-    const ey = Math.abs(Math.sin(rx)*Math.sin(ry)*Math.cos(rz)+Math.cos(rx)*Math.sin(rz))*hx + Math.abs(Math.cos(rx)*Math.cos(rz))*hy + Math.abs(Math.cos(rx)*Math.sin(ry)*Math.sin(rz)-Math.sin(rx)*Math.cos(rz))*hz
-    const ez = Math.abs(Math.cos(rx)*Math.sin(ry)*Math.cos(rz)-Math.sin(rx)*Math.sin(rz))*hx + Math.abs(Math.sin(rx)*Math.cos(ry))*hy + Math.abs(Math.cos(rx)*Math.cos(ry)*Math.cos(rz))*hz
+
+    _aabbEuler.set(rx, ry, rz, 'XYZ')
+    _aabbM4.makeRotationFromEuler(_aabbEuler)
+    _aabbM3.setFromMatrix4(_aabbM4)
+
+    // Matrix3.elements is column-major: [ r11 r21 r31 r12 r22 r32 r13 r23 r33 ]
+    const e = _aabbM3.elements
+    const r11 = e[0], r12 = e[3], r13 = e[6]
+    const r21 = e[1], r22 = e[4], r23 = e[7]
+    const r31 = e[2], r32 = e[5], r33 = e[8]
+
+    const ex = Math.abs(r11) * hx + Math.abs(r12) * hy + Math.abs(r13) * hz
+    const ey = Math.abs(r21) * hx + Math.abs(r22) * hy + Math.abs(r23) * hz
+    const ez = Math.abs(r31) * hx + Math.abs(r32) * hy + Math.abs(r33) * hz
     return [ex, ey, ez]
   }, [])
 

@@ -14,6 +14,8 @@ const PALETTE = [
 const _floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
 const _hit        = new THREE.Vector3()
 const _euler      = new THREE.Euler()
+const _rotM4      = new THREE.Matrix4()
+const _rotM3      = new THREE.Matrix3()
 
 export default function DraggableBox({
   id, position, rotation, dims, palletDims,
@@ -69,18 +71,21 @@ export default function DraggableBox({
     const ry = rot?.[1] ?? 0
     const rz = rot?.[2] ?? 0
 
-    // AABB half-extents of a rotated box = sum of |col_i| * half_i
-    const cx = Math.abs(Math.cos(ry)*Math.cos(rz))
-    const cy = Math.abs(Math.sin(rz)*Math.cos(rx) + Math.cos(rz)*Math.sin(ry)*Math.sin(rx))
-    const cz = Math.abs(Math.sin(rz)*Math.sin(rx) - Math.cos(rz)*Math.sin(ry)*Math.cos(rx))
+    // AABB half-extents of a rotated box = |R| * halfExtents (R from Euler, order XYZ)
+    _euler.set(rx, ry, rz, 'XYZ')
+    _rotM4.makeRotationFromEuler(_euler)
+    _rotM3.setFromMatrix4(_rotM4)
 
-    const ex = cx*hx + Math.abs(-Math.sin(ry))*hy                                + Math.abs(Math.cos(ry)*Math.sin(rz))*hz
-    const ey = Math.abs(Math.sin(rx)*Math.sin(ry)*Math.cos(rz) + Math.cos(rx)*Math.sin(rz))*hx
-             + Math.abs(Math.cos(rx)*Math.cos(rz))*hy
-             + Math.abs(Math.cos(rx)*Math.sin(ry)*Math.sin(rz) - Math.sin(rx)*Math.cos(rz))*hz
-    const ez = Math.abs(Math.cos(rx)*Math.sin(ry)*Math.cos(rz) - Math.sin(rx)*Math.sin(rz))*hx
-             + Math.abs(Math.sin(rx)*Math.cos(ry))*hy
-             + Math.abs(Math.cos(rx)*Math.cos(ry)*Math.cos(rz))*hz
+    // three.js Matrix3.elements is column-major:
+    // [ r11 r21 r31 r12 r22 r32 r13 r23 r33 ]
+    const e = _rotM3.elements
+    const r11 = e[0], r12 = e[3], r13 = e[6]
+    const r21 = e[1], r22 = e[4], r23 = e[7]
+    const r31 = e[2], r32 = e[5], r33 = e[8]
+
+    const ex = Math.abs(r11) * hx + Math.abs(r12) * hy + Math.abs(r13) * hz
+    const ey = Math.abs(r21) * hx + Math.abs(r22) * hy + Math.abs(r23) * hz
+    const ez = Math.abs(r31) * hx + Math.abs(r32) * hy + Math.abs(r33) * hz
 
     return [ex, ey, ez]
   }, [])
