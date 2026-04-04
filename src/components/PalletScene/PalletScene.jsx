@@ -1,14 +1,12 @@
 import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Grid, Environment, ContactShadows, Text3D } from '@react-three/drei'
+import { Grid, Environment, ContactShadows, Html } from '@react-three/drei'
 import * as THREE from 'three'
-import helvetiker from 'three/examples/fonts/helvetiker_regular.typeface.json'
 import DraggableBox from '../DraggableBox/DraggableBox'
 
-// Layout: pallet at origin, staging rack to the LEFT (negative X)
-const STAGING_X_OFFSET = -3.5   // how far left the staging area is
-const STAGING_COLS     = 3      // boxes per row in staging
-const STAGING_GAP      = 0.12   // gap between staged boxes
+const STAGING_X_OFFSET = -3.5
+const STAGING_COLS     = 3
+const STAGING_GAP      = 0.12
 
 export default function PalletScene({
   boxes, palletDims,
@@ -45,12 +43,9 @@ export default function PalletScene({
   const warnGeo    = useMemo(() => new THREE.PlaneGeometry(pw, pd), [pw, pd])
   const limLineGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(pw, 0.004, pd)), [pw, pd])
 
-  // Separate staged vs placed boxes
   const staged = boxes.filter(b => b.staged)
   const placed = boxes.filter(b => !b.staged)
 
-  // Build staging grid positions for staged boxes
-  // Each box gets a slot in a grid to the left of the pallet
   const stagingPositions = useMemo(() => {
     return staged.map((box, i) => {
       const col = i % STAGING_COLS
@@ -64,10 +59,9 @@ export default function PalletScene({
     })
   }, [staged, pw])
 
-  // Staging area backdrop dimensions
-  const maxStagedRows = Math.ceil(staged.length / STAGING_COLS)
-  const stagingAreaW  = pw / 2 + Math.abs(STAGING_X_OFFSET) + 1.5
-  const stagingAreaD  = Math.max(pd, maxStagedRows * 1.5 + 1)
+  const maxStagedRows  = Math.ceil(staged.length / STAGING_COLS)
+  const stagingAreaW   = pw / 2 + Math.abs(STAGING_X_OFFSET) + 1.5
+  const stagingAreaD   = Math.max(pd, maxStagedRows * 1.5 + 1)
   const stagingCenterX = STAGING_X_OFFSET - pw / 2 - stagingAreaW / 2 + 0.8
 
   return (
@@ -130,35 +124,39 @@ export default function PalletScene({
       {staged.length > 0 && (
         <>
           {/* Staging floor mat */}
-          <mesh
-            position={[stagingCenterX - 0.3, -0.11, 0]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            receiveShadow
-          >
+          <mesh position={[stagingCenterX - 0.3, -0.115, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
             <planeGeometry args={[stagingAreaW, stagingAreaD]} />
-            <meshStandardMaterial color="#1a1a2e" roughness={1} transparent opacity={0.7} />
+            <meshStandardMaterial color="#1a1a2e" roughness={1} transparent opacity={0.75} />
           </mesh>
 
           {/* Staging border */}
           <lineSegments position={[stagingCenterX - 0.3, 0, 0]}>
             <edgesGeometry args={[new THREE.BoxGeometry(stagingAreaW, 0.01, stagingAreaD)]} />
-            <lineBasicMaterial color="rgba(245,166,35,0.25)" />
+            <lineBasicMaterial color="rgba(245,166,35,0.3)" />
           </lineSegments>
 
-          {/* "STAGING" label */}
-          <Text3D
-            font={helvetiker}
-            size={0.18}
-            height={0.02}
-            curveSegments={10}
-            bevelEnabled={false}
-            position={[stagingCenterX - 0.3, 0.04, stagingAreaD / 2 + 0.2]}
+          {/* Label — HTML overlay (works in Vite / R3F without font files) */}
+          <Html
+            position={[stagingCenterX - 0.3, 0.02, stagingAreaD / 2 + 0.3]}
             rotation={[-Math.PI / 2, 0, 0]}
             center
+            distanceFactor={6}
+            style={{ pointerEvents: 'none' }}
           >
-            STAGING AREA — DRAG BOXES TO PALLET
-            <meshStandardMaterial color="#f5a623" roughness={0.6} metalness={0.05} />
-          </Text3D>
+            <div style={{
+              fontFamily: "'Syne', sans-serif",
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: '#f5a623',
+              whiteSpace: 'nowrap',
+              opacity: 0.8,
+              textShadow: '0 0 8px rgba(245,166,35,0.5)',
+            }}>
+              ▸ Staging Area — drag boxes onto pallet
+            </div>
+          </Html>
         </>
       )}
 

@@ -67,40 +67,93 @@
   color: #44445a; letter-spacing: 0.05em;
 }
 
-/* Right-click box menu */
+/* Right-click context menu */
 .calc-context-menu {
   position: fixed;
   z-index: 40;
-  background: rgba(12,12,22,0.94);
-  backdrop-filter: blur(10px);
+  background: rgba(10,10,18,0.97);
+  backdrop-filter: blur(14px);
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.55);
+  min-width: 220px;
 }
+
+/* Section label inside menu */
+.calc-ctx-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #555570;
+  padding: 4px 6px 6px;
+}
+
+/* Divider between sections */
+.calc-ctx-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  margin: 6px 0;
+}
+
+/* Rotation grid: 3 columns */
+.calc-ctx-rot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+.calc-ctx-rot-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 8px;
+  color: #c8c8e0;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 8px 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.calc-ctx-rot-btn:hover {
+  background: rgba(245,166,35,0.18);
+  border-color: rgba(245,166,35,0.5);
+  color: #f5a623;
+}
+
+/* Action buttons */
 .calc-context-btn {
   appearance: none;
   border: 0;
-  background: rgba(245,166,35,0.14);
+  background: rgba(245,166,35,0.1);
   color: #f5a623;
   font-family: 'Syne', sans-serif;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
   width: 100%;
   text-align: left;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.calc-context-btn + .calc-context-btn { margin-top: 6px; }
 .calc-context-btn:hover {
-  background: rgba(245,166,35,0.22);
+  background: rgba(245,166,35,0.2);
 }
+.calc-context-btn + .calc-context-btn { margin-top: 4px; }
 .calc-context-btn-danger {
-  background: rgba(255,80,80,0.14);
-  color: rgba(255,120,120,0.98);
+  background: rgba(255,80,80,0.1);
+  color: rgba(255,120,120,0.95);
 }
 .calc-context-btn-danger:hover {
-  background: rgba(255,80,80,0.22);
+  background: rgba(255,80,80,0.2);
 }

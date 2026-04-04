@@ -9,31 +9,37 @@ const PALETTE = [
   '#a2cc5a','#5a8bcc','#cca85a','#5accaa',
 ]
 
-// Shared drag plane (horizontal, Y-up)
-const _dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
-const _hit       = new THREE.Vector3()
+// Fixed floor-level drag plane — always at Y=0 (pallet surface)
+// Mouse projects onto this plane to get stable XZ coordinates
+const _floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
+const _hit        = new THREE.Vector3()
+const _euler      = new THREE.Euler()
 
 export default function DraggableBox({
   id, position, rotation, dims, palletDims,
   snapTargets,
   isSelected, isStaged,
   onSelect, onMove, onDropToPallet,
-  onDragStateChange,
-  onContextMenu,
+  onDragStateChange, onContextMenu,
   colorIndex,
 }) {
-  const groupRef = useRef()
-  const dragging = useRef(false)
-  const offset   = useRef(new THREE.Vector3())
-  const livePos  = useRef(new THREE.Vector3(...position))
+  const groupRef  = useRef()
+  const dragging  = useRef(false)
+  const offset    = useRef(new THREE.Vector3())   // XZ offset only
+  const livePos   = useRef(new THREE.Vector3(...position))
+  const liveRot   = useRef(new THREE.Euler(...rotation))
+
+  // Keep latest prop values accessible in useFrame without re-subscribing
+  const posRef = useRef(position)
+  const rotRef = useRef(rotation)
+  useEffect(() => { posRef.current = position }, [position])
+  useEffect(() => { rotRef.current = rotation }, [rotation])
 
   const [hovered, setHovered] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
-  const { camera, raycaster, pointer } = useThree()
+  const { camera, gl, raycaster, pointer } = useThree()
+  useCursor(hovered)
 
-  useCursor(hovered || isDragging, isDragging ? 'grabbing' : 'pointer')
-
-  // unit: 1 three.js unit = 10 cm
+  // 1 unit = 10 cm
   const sx = dims.length / 10
   const sy = dims.height / 10
   const sz = dims.width  / 10
@@ -41,99 +47,150 @@ export default function DraggableBox({
   const halfPW = palletDims.length / 10 / 2
   const halfPD = palletDims.width  / 10 / 2
 
-  const color = PALETTE[colorIndex % PALETTE.length]
-
-  // staged boxes look dimmer / outlined
-  const opacity  = isStaged ? 0.55 : 0.92
-  const emissive = isSelected ? color : hovered ? color : '#000000'
+  const color   = PALETTE[colorIndex % PALETTE.length]
+  const opacity = isStaged ? 0.55 : 0.92
+  const edgeClr = isSelected ? '#ffffff' : isStaged ? '#555577' : hovered ? '#9999bb' : '#2a2a3a'
   const emissiveIntensity = isSelected ? 0.28 : hovered ? 0.1 : 0
-  const edgeClr  = isSelected ? '#ffffff' : isStaged ? '#555577' : hovered ? '#9999bb' : '#2a2a3a'
 
   const edgeGeo = useMemo(
     () => new THREE.EdgesGeometry(new THREE.BoxGeometry(sx, sy, sz)),
     [sx, sy, sz]
   )
 
-  const getFootprintHalfExtents = useCallback((boxDims, boxRotation) => {
-    const fx = boxDims.length / 10
-    const fz = boxDims.width / 10
-    const rotY = boxRotation?.[1] ?? 0
-    const quarterTurns = ((Math.round(rotY / (Math.PI / 2)) % 4) + 4) % 4
-    const swapped = quarterTurns % 2 === 1
-    const sizeX = swapped ? fz : fx
-    const sizeZ = swapped ? fx : fz
-    return [sizeX / 2, sizeZ / 2]
+  // ── helpers ──────────────────────────────────────────────────────
+  // Compute axis-aligned half-extents AFTER applying rotation
+  // Works for any rotation (X, Y, Z axes), not just Y-only
+  const getRotatedHalfExtents = useCallback((d, rot) => {
+    const hx = d.length / 10 / 2
+    const hy = d.height / 10 / 2
+    const hz = d.width  / 10 / 2
+
+    const rx = rot?.[0] ?? 0
+    const ry = rot?.[1] ?? 0
+    const rz = rot?.[2] ?? 0
+
+    // AABB half-extents of a rotated box = sum of |col_i| * half_i
+    const cx = Math.abs(Math.cos(ry)*Math.cos(rz))
+    const cy = Math.abs(Math.sin(rz)*Math.cos(rx) + Math.cos(rz)*Math.sin(ry)*Math.sin(rx))
+    const cz = Math.abs(Math.sin(rz)*Math.sin(rx) - Math.cos(rz)*Math.sin(ry)*Math.cos(rx))
+
+    const ex = cx*hx + Math.abs(-Math.sin(ry))*hy                                + Math.abs(Math.cos(ry)*Math.sin(rz))*hz
+    const ey = Math.abs(Math.sin(rx)*Math.sin(ry)*Math.cos(rz) + Math.cos(rx)*Math.sin(rz))*hx
+             + Math.abs(Math.cos(rx)*Math.cos(rz))*hy
+             + Math.abs(Math.cos(rx)*Math.sin(ry)*Math.sin(rz) - Math.sin(rx)*Math.cos(rz))*hz
+    const ez = Math.abs(Math.cos(rx)*Math.sin(ry)*Math.cos(rz) - Math.sin(rx)*Math.sin(rz))*hx
+             + Math.abs(Math.sin(rx)*Math.cos(ry))*hy
+             + Math.abs(Math.cos(rx)*Math.cos(ry)*Math.cos(rz))*hz
+
+    return [ex, ey, ez]
   }, [])
 
-  const [selfHalfX, selfHalfZ] = useMemo(
-    () => getFootprintHalfExtents(dims, rotation),
-    [dims, rotation, getFootprintHalfExtents]
+  // For XZ footprint snapping (legacy helper, now uses full AABB)
+  const getHalfExtents = useCallback((d, rot) => {
+    const [ex, , ez] = getRotatedHalfExtents(d, rot)
+    return [ex, ez]
+  }, [getRotatedHalfExtents])
+
+  const [selfHX, selfHY, selfHZ] = useMemo(
+    () => getRotatedHalfExtents(dims, rotation),
+    [dims, rotation, getRotatedHalfExtents]
   )
-  const selfHalfY = sy / 2
 
-  // clamp to pallet footprint
   const clampToPallet = useCallback((x, z) => [
-    Math.max(-halfPW + selfHalfX, Math.min(halfPW - selfHalfX, x)),
-    Math.max(-halfPD + selfHalfZ, Math.min(halfPD - selfHalfZ, z)),
-  ], [halfPW, halfPD, selfHalfX, selfHalfZ])
+    Math.max(-halfPW + selfHX, Math.min(halfPW - selfHX, x)),
+    Math.max(-halfPD + selfHZ, Math.min(halfPD - selfHZ, z)),
+  ], [halfPW, halfPD, selfHX, selfHZ])
 
-  const snapIn1D = useCallback((value, candidates, threshold) => {
-    let best = value
-    let bestDist = threshold
+  const snap1D = useCallback((v, candidates, thr) => {
+    let best = v, bestD = thr
     for (const c of candidates) {
-      const d = Math.abs(value - c)
-      if (d < bestDist) {
-        bestDist = d
-        best = c
-      }
+      const d = Math.abs(v - c)
+      if (d < bestD) { bestD = d; best = c }
     }
     return best
   }, [])
 
-  const overlapAmount = useCallback((aMin, aMax, bMin, bMax) => {
-    return Math.max(0, Math.min(aMax, bMax) - Math.max(aMin, bMin))
-  }, [])
-
-  const computeNonOverlappingY = useCallback((x, z) => {
+  /**
+   * Given a desired XZ position on the pallet, find the correct Y
+   * by stacking on top of any boxes whose footprint overlaps.
+   * Uses only placed boxes (snapTargets), ignores self.
+   */
+  const computeStackY = useCallback((x, z) => {
     const targets = Array.isArray(snapTargets) ? snapTargets : []
-    const EPS = 0.0005
-    let y = selfHalfY // pallet surface (y=0) + half height
+    const EPS = 0.001
+    let topY = 0   // pallet surface
 
-    for (let iter = 0; iter < 20; iter++) {
-      let nextY = y
-      let collided = false
+    for (const t of targets) {
+      if (!t || t.id === id) continue
+      const [tHX, tHY, tHZ] = getRotatedHalfExtents(t.dims, t.rotation)
+      const [tx, ty, tz] = t.position ?? [0, tHY, 0]
 
-      for (const t of targets) {
-        if (!t || t.id === id) continue
-        const [tHalfX, tHalfZ] = getFootprintHalfExtents(t.dims, t.rotation)
-        const tHalfY = (t.dims.height / 10) / 2
-        const tx = t.position?.[0] ?? 0
-        const ty = t.position?.[1] ?? tHalfY
-        const tz = t.position?.[2] ?? 0
-
-        const overlapX = Math.abs(x - tx) < (selfHalfX + tHalfX - EPS)
-        const overlapZ = Math.abs(z - tz) < (selfHalfZ + tHalfZ - EPS)
-        const overlapY = Math.abs(y - ty) < (selfHalfY + tHalfY - EPS)
-
-        if (overlapX && overlapZ && overlapY) {
-          collided = true
-          const tTop = ty + tHalfY
-          nextY = Math.max(nextY, tTop + selfHalfY)
-        }
+      const xOverlap = Math.abs(x - tx) < (selfHX + tHX - EPS)
+      const zOverlap = Math.abs(z - tz) < (selfHZ + tHZ - EPS)
+      if (xOverlap && zOverlap) {
+        topY = Math.max(topY, ty + tHY)
       }
-
-      if (!collided) break
-      if (nextY === y) break
-      y = nextY
     }
 
-    return y
-  }, [snapTargets, id, getFootprintHalfExtents, selfHalfX, selfHalfY, selfHalfZ])
+    return topY + selfHY
+  }, [snapTargets, id, getRotatedHalfExtents, selfHX, selfHY, selfHZ])
 
-  // sync livePos from prop (when not dragging)
-  useEffect(() => {
-    if (!dragging.current) livePos.current.set(...position)
-  }, [position])
+  // ── useFrame: single owner of transform ──────────────────────────
+  useFrame(() => {
+    if (!groupRef.current) return
+
+    if (dragging.current) {
+      // Project mouse onto the FIXED floor plane (Y=0)
+      // This gives stable XZ regardless of box height → no flickering
+      raycaster.setFromCamera(pointer, camera)
+      if (raycaster.ray.intersectPlane(_floorPlane, _hit)) {
+        const rawX = _hit.x - offset.current.x
+        const rawZ = _hit.z - offset.current.z
+        const inPallet = Math.abs(rawX) <= halfPW && Math.abs(rawZ) <= halfPD
+
+        if (inPallet) {
+          const SNAP = 0.14
+          let [cx, cz] = clampToPallet(rawX, rawZ)
+
+          // Snap to pallet edges
+          cx = snap1D(cx, [-halfPW + selfHX, halfPW - selfHX], SNAP)
+          cz = snap1D(cz, [-halfPD + selfHZ, halfPD - selfHZ], SNAP)
+
+          // Snap edge-to-edge with other placed boxes
+          const targets = Array.isArray(snapTargets) ? snapTargets : []
+          const xC = [], zC = []
+          for (const t of targets) {
+            if (!t || t.id === id) continue
+            const [tHX, tHZ] = getHalfExtents(t.dims, t.rotation)
+            const [tx, , tz] = t.position ?? [0, 0, 0]
+            const zOv = Math.max(0, Math.min(cz + selfHZ, tz + tHZ) - Math.max(cz - selfHZ, tz - tHZ))
+            const xOv = Math.max(0, Math.min(cx + selfHX, tx + tHX) - Math.max(cx - selfHX, tx - tHX))
+            if (zOv > selfHZ * 0.15) { xC.push(tx + tHX + selfHX); xC.push(tx - tHX - selfHX) }
+            if (xOv > selfHX * 0.15) { zC.push(tz + tHZ + selfHZ); zC.push(tz - tHZ - selfHZ) }
+          }
+          cx = snap1D(cx, xC, SNAP)
+          cz = snap1D(cz, zC, SNAP)
+          ;[cx, cz] = clampToPallet(cx, cz)
+
+          // Y is computed from XZ footprint overlap — no dependency on mouse Y
+          const cy = computeStackY(cx, cz)
+          livePos.current.set(cx, cy, cz)
+        } else {
+          // Outside pallet — float at staging height
+          livePos.current.set(rawX, selfHY, rawZ)
+        }
+      }
+    } else {
+      // Idle — mirror React props
+      const p = posRef.current
+      const r = rotRef.current
+      livePos.current.set(p[0], p[1], p[2])
+      liveRot.current.set(r[0], r[1], r[2])
+    }
+
+    groupRef.current.position.copy(livePos.current)
+    groupRef.current.rotation.copy(liveRot.current)
+  })
 
   useEffect(() => () => onDragStateChange?.(false), [onDragStateChange])
 
@@ -142,148 +199,67 @@ export default function DraggableBox({
     e.target.setPointerCapture?.(e.pointerId)
     onSelect(id)
     dragging.current = true
-    setIsDragging(true)
     onDragStateChange?.(true)
+    gl.domElement.style.cursor = 'grabbing'
 
-    // set drag plane at box Y level
-    _dragPlane.constant = -livePos.current.y
+    // Capture XZ offset from floor plane so box doesn't jump to cursor center
     raycaster.setFromCamera(pointer, camera)
-    raycaster.ray.intersectPlane(_dragPlane, _hit)
-    offset.current.copy(_hit).sub(livePos.current)
-  }, [id, onSelect, onDragStateChange, camera, raycaster, pointer])
+    if (raycaster.ray.intersectPlane(_floorPlane, _hit)) {
+      // offset = where on the floor the mouse clicked, minus box XZ position
+      offset.current.set(
+        _hit.x - livePos.current.x,
+        0,
+        _hit.z - livePos.current.z
+      )
+    } else {
+      offset.current.set(0, 0, 0)
+    }
+  }, [id, onSelect, onDragStateChange, camera, gl, raycaster, pointer])
 
   const onPointerUp = useCallback((e) => {
     e.stopPropagation()
     e.target.releasePointerCapture?.(e.pointerId)
     if (!dragging.current) return
     dragging.current = false
-    setIsDragging(false)
     onDragStateChange?.(false)
+    gl.domElement.style.cursor = ''
 
-    const pos = livePos.current.toArray()
-    const x = pos[0], z = pos[2]
-
-    // Check if dropped inside pallet footprint
-    const inPallet = (
-      Math.abs(x) <= halfPW - selfHalfX &&
-      Math.abs(z) <= halfPD - selfHalfZ
-    )
+    const [x, y, z] = livePos.current.toArray()
+    const inPallet = Math.abs(x) <= halfPW - selfHX && Math.abs(z) <= halfPD - selfHZ
 
     if (inPallet) {
-      // Y is continuously adjusted while dragging (stacking + collision avoidance)
-      onDropToPallet(id, [x, livePos.current.y, z])
+      onDropToPallet(id, [x, y, z])
     } else {
-      // Return to staged position or move freely if already placed
-      onMove(id, livePos.current.toArray())
+      onMove(id, [x, y, z])
     }
-  }, [id, onMove, onDropToPallet, onDragStateChange, halfPW, halfPD, selfHalfX, selfHalfZ])
-
-  const handleOpenMenu = useCallback((e) => {
-    e.stopPropagation()
-    onContextMenu?.(id, e.nativeEvent ?? e)
-  }, [id, onContextMenu])
-
-  useFrame(() => {
-    if (!groupRef.current) return
-    if (dragging.current) {
-      _dragPlane.constant = -livePos.current.y
-      raycaster.setFromCamera(pointer, camera)
-      if (raycaster.ray.intersectPlane(_dragPlane, _hit)) {
-        const rawX = _hit.x - offset.current.x
-        const rawZ = _hit.z - offset.current.z
-
-        // While dragging, if hovering pallet zone → snap to boundary
-        const inPallet = Math.abs(rawX) <= halfPW && Math.abs(rawZ) <= halfPD
-        if (inPallet) {
-          const SNAP_DIST = 0.12 // ~12cm (1 unit = 10cm)
-          const GAP = 0 // flush edges
-
-          let [cx, cz] = clampToPallet(rawX, rawZ)
-
-          // 1) Snap to pallet edges
-          cx = snapIn1D(cx, [-halfPW + selfHalfX, halfPW - selfHalfX], SNAP_DIST)
-          cz = snapIn1D(cz, [-halfPD + selfHalfZ, halfPD - selfHalfZ], SNAP_DIST)
-
-          // 2) Snap to nearby placed boxes (edge-to-edge) if ranges overlap on the other axis
-          const targets = Array.isArray(snapTargets) ? snapTargets : []
-          const selfZMin = cz - selfHalfZ
-          const selfZMax = cz + selfHalfZ
-          const selfXMin = cx - selfHalfX
-          const selfXMax = cx + selfHalfX
-
-          const minZOverlapForXSnap = Math.min(selfHalfZ * 2, 0.25) * 0.2
-          const minXOverlapForZSnap = Math.min(selfHalfX * 2, 0.25) * 0.2
-
-          const xCandidates = []
-          const zCandidates = []
-
-          for (const t of targets) {
-            if (!t || t.id === id) continue
-            const [tHalfX, tHalfZ] = getFootprintHalfExtents(t.dims, t.rotation)
-            const tx = t.position?.[0] ?? 0
-            const tz = t.position?.[2] ?? 0
-            const tXMin = tx - tHalfX
-            const tXMax = tx + tHalfX
-            const tZMin = tz - tHalfZ
-            const tZMax = tz + tHalfZ
-
-            const zOverlap = overlapAmount(selfZMin, selfZMax, tZMin, tZMax)
-            if (zOverlap > minZOverlapForXSnap) {
-              xCandidates.push((tXMax + GAP) + selfHalfX)
-              xCandidates.push((tXMin - GAP) - selfHalfX)
-            }
-
-            const xOverlap = overlapAmount(selfXMin, selfXMax, tXMin, tXMax)
-            if (xOverlap > minXOverlapForZSnap) {
-              zCandidates.push((tZMax + GAP) + selfHalfZ)
-              zCandidates.push((tZMin - GAP) - selfHalfZ)
-            }
-          }
-
-          cx = snapIn1D(cx, xCandidates, SNAP_DIST)
-          cz = snapIn1D(cz, zCandidates, SNAP_DIST)
-
-          ;[cx, cz] = clampToPallet(cx, cz)
-          const cy = computeNonOverlappingY(cx, cz)
-          livePos.current.set(cx, cy, cz)
-        } else {
-          livePos.current.set(rawX, livePos.current.y, rawZ)
-        }
-      }
-    }
-    groupRef.current.position.copy(livePos.current)
-    groupRef.current.rotation.set(...rotation)
-  })
+  }, [id, onMove, onDropToPallet, onDragStateChange, gl, halfPW, halfPD, selfHX, selfHZ])
 
   return (
-    <group ref={groupRef} position={position} rotation={rotation}>
-      {/* Box body */}
+    // No position/rotation props — useFrame owns the transform entirely
+    <group ref={groupRef}>
       <mesh
         castShadow receiveShadow
         onPointerOver={e => { e.stopPropagation(); setHovered(true) }}
         onPointerOut={() => setHovered(false)}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
-        onDoubleClick={handleOpenMenu}
+        onContextMenu={e => { e.stopPropagation(); onContextMenu?.(id, e.nativeEvent ?? e) }}
       >
         <boxGeometry args={[sx, sy, sz]} />
         <meshStandardMaterial
           color={color}
           roughness={isStaged ? 0.7 : 0.45}
           metalness={0.06}
-          emissive={emissive}
+          emissive={color}
           emissiveIntensity={emissiveIntensity}
-          transparent
-          opacity={opacity}
+          transparent opacity={opacity}
         />
       </mesh>
 
-      {/* Edges */}
       <lineSegments geometry={edgeGeo}>
         <lineBasicMaterial color={edgeClr} />
       </lineSegments>
 
-      {/* Staged "drag me" indicator — pulsing ring */}
       {isStaged && !isSelected && (
         <mesh position={[0, sy / 2 + 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[sx * 0.35, sx * 0.42, 16]} />
@@ -291,7 +267,6 @@ export default function DraggableBox({
         </mesh>
       )}
 
-      {/* Selected dot */}
       {isSelected && (
         <mesh position={[0, sy / 2 + 0.08, 0]}>
           <sphereGeometry args={[0.07, 10, 10]} />

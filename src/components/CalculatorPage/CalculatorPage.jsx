@@ -81,63 +81,61 @@ export default function CalculatorPage() {
   const placedBoxes = useMemo(() => boxes.filter(b => !b.staged), [boxes])
   const stagedBoxes = useMemo(() => boxes.filter(b =>  b.staged), [boxes])
 
+  // Reusable AABB helper — must be declared BEFORE any useMemo that calls it
+  const getRotatedHalfExtents = useCallback((d, rot) => {
+    const hx = d.length / 10 / 2
+    const hy = d.height / 10 / 2
+    const hz = d.width  / 10 / 2
+    const rx = rot?.[0] ?? 0
+    const ry = rot?.[1] ?? 0
+    const rz = rot?.[2] ?? 0
+    const ex = Math.abs(Math.cos(ry)*Math.cos(rz))*hx + Math.abs(-Math.sin(ry))*hy + Math.abs(Math.cos(ry)*Math.sin(rz))*hz
+    const ey = Math.abs(Math.sin(rx)*Math.sin(ry)*Math.cos(rz)+Math.cos(rx)*Math.sin(rz))*hx + Math.abs(Math.cos(rx)*Math.cos(rz))*hy + Math.abs(Math.cos(rx)*Math.sin(ry)*Math.sin(rz)-Math.sin(rx)*Math.cos(rz))*hz
+    const ez = Math.abs(Math.cos(rx)*Math.sin(ry)*Math.cos(rz)-Math.sin(rx)*Math.sin(rz))*hx + Math.abs(Math.sin(rx)*Math.cos(ry))*hy + Math.abs(Math.cos(rx)*Math.cos(ry)*Math.cos(rz))*hz
+    return [ex, ey, ez]
+  }, [])
+
   const maxStackY = useMemo(() => {
     if (!placedBoxes.length) return 0
-    return Math.max(...placedBoxes.map(b => b.position[1] + b.dims.height / 10 / 2))
-  }, [placedBoxes])
+    return Math.max(...placedBoxes.map(b => {
+      const [, hy] = getRotatedHalfExtents(b.dims, b.rotation)
+      return b.position[1] + hy
+    }))
+  }, [placedBoxes, getRotatedHalfExtents])
 
   const maxLevels = useMemo(() => {
     if (!placedBoxes.length) return 0
-
     const EPS = 0.02
-
-    const footprintHalfExtents = (dims, rotation) => {
-      const fx = dims.length / 10
-      const fz = dims.width / 10
-      const rotY = rotation?.[1] ?? 0
-      const quarterTurns = ((Math.round(rotY / (Math.PI / 2)) % 4) + 4) % 4
-      const swapped = quarterTurns % 2 === 1
-      const sizeX = swapped ? fz : fx
-      const sizeZ = swapped ? fx : fz
-      return [sizeX / 2, sizeZ / 2]
-    }
+    const boxesSorted = placedBoxes.map(b => {
+      const [, hy] = getRotatedHalfExtents(b.dims, b.rotation)
+      return { ...b, _bottom: b.position[1] - hy, _top: b.position[1] + hy }
+    }).sort((a, b) => a._bottom - b._bottom)
 
     const overlapXZ = (a, b) => {
-      const [aHalfX, aHalfZ] = footprintHalfExtents(a.dims, a.rotation)
-      const [bHalfX, bHalfZ] = footprintHalfExtents(b.dims, b.rotation)
-      const ax = a.position[0], az = a.position[2]
-      const bx = b.position[0], bz = b.position[2]
+      const [aHX, , aHZ] = getRotatedHalfExtents(a.dims, a.rotation)
+      const [bHX, , bHZ] = getRotatedHalfExtents(b.dims, b.rotation)
       return (
-        Math.abs(ax - bx) < (aHalfX + bHalfX - 0.0005) &&
-        Math.abs(az - bz) < (aHalfZ + bHalfZ - 0.0005)
+        Math.abs(a.position[0] - b.position[0]) < (aHX + bHX - 0.0005) &&
+        Math.abs(a.position[2] - b.position[2]) < (aHZ + bHZ - 0.0005)
       )
     }
 
-    const boxesSorted = placedBoxes.map(b => {
-      const halfY = (b.dims.height / 10) / 2
-      const y = b.position[1]
-      return { ...b, _bottom: y - halfY, _top: y + halfY }
-    }).sort((a, b) => a._bottom - b._bottom)
-
     const levelById = new Map()
     let best = 1
-
     for (const b of boxesSorted) {
       let level = 1
       for (const a of boxesSorted) {
         if (a === b) break
         if (!overlapXZ(a, b)) continue
         if (Math.abs(b._bottom - a._top) <= EPS) {
-          const aLevel = levelById.get(a.id) ?? 1
-          level = Math.max(level, aLevel + 1)
+          level = Math.max(level, (levelById.get(a.id) ?? 1) + 1)
         }
       }
       levelById.set(b.id, level)
       best = Math.max(best, level)
     }
-
     return best
-  }, [placedBoxes])
+  }, [placedBoxes, getRotatedHalfExtents])
 
   const heightWarning = maxStackY > palletDims.height / 10
 
@@ -204,30 +202,19 @@ export default function CalculatorPage() {
       const halfPD = palletDims.width  / 10 / 2
       const palletH = palletDims.height / 10
 
-      const rotY = ref.rotation?.[1] ?? 0
-      const quarterTurns = ((Math.round(rotY / (Math.PI / 2)) % 4) + 4) % 4
-      const swapped = quarterTurns % 2 === 1
-
-      const sizeX = (swapped ? ref.dims.width : ref.dims.length) / 10
-      const sizeZ = (swapped ? ref.dims.length : ref.dims.width) / 10
-      const halfX = sizeX / 2
-      const halfZ = sizeZ / 2
-      const halfY = (ref.dims.height / 10) / 2
-
+      const [halfX, halfY, halfZ] = getRotatedHalfExtents(ref.dims, ref.rotation)
       const baseY = ref.staged ? halfY : (ref.position?.[1] ?? halfY)
       if (baseY + halfY > palletH + 0.0005) return prev
 
-      const minX = -halfPW + halfX
-      const maxX = halfPW - halfX
-      const minZ = -halfPD + halfZ
-      const maxZ = halfPD - halfZ
+      // Use rotated extents for step sizes
+      const stepX = halfX * 2
+      const stepZ = halfZ * 2
+      const minX = -halfPW + halfX, maxX = halfPW - halfX
+      const minZ = -halfPD + halfZ, maxZ = halfPD - halfZ
 
-      const stepX = sizeX
-      const stepZ = sizeZ
-
+      // Align grid to ref box position
       const anchorX = ref.position?.[0] ?? minX
       const anchorZ = ref.position?.[2] ?? minZ
-
       const kx = Math.round((anchorX - minX) / stepX)
       const kz = Math.round((anchorZ - minZ) / stepZ)
       let originX = anchorX - kx * stepX
@@ -238,42 +225,22 @@ export default function CalculatorPage() {
       while (originZ > minZ + 1e-6) originZ -= stepZ
 
       const placed = prev.filter(b => !b.staged)
-
-      const footprintHalfExtents = (dims, rotation) => {
-        const rY = rotation?.[1] ?? 0
-        const qt = ((Math.round(rY / (Math.PI / 2)) % 4) + 4) % 4
-        const sw = qt % 2 === 1
-        const sX = (sw ? dims.width : dims.length) / 10
-        const sZ = (sw ? dims.length : dims.width) / 10
-        return [sX / 2, sZ / 2]
-      }
-
-      const overlaps3D = (a, b) => {
-        return (
-          Math.abs(a.x - b.x) < (a.hx + b.hx - 0.0005) &&
-          Math.abs(a.y - b.y) < (a.hy + b.hy - 0.0005) &&
-          Math.abs(a.z - b.z) < (a.hz + b.hz - 0.0005)
-        )
-      }
-
-      const candidate = { x: 0, y: baseY, z: 0, hx: halfX, hy: halfY, hz: halfZ }
+      const EPS = 0.0005
 
       const collides = (x, z) => {
-        candidate.x = x
-        candidate.z = z
         for (const b of placed) {
-          const [bhx, bhz] = footprintHalfExtents(b.dims, b.rotation)
-          const bhy = (b.dims.height / 10) / 2
-          const bx = b.position?.[0] ?? 0
-          const by = b.position?.[1] ?? bhy
-          const bz = b.position?.[2] ?? 0
-          if (overlaps3D(candidate, { x: bx, y: by, z: bz, hx: bhx, hy: bhy, hz: bhz })) return true
+          const [bhx, bhy, bhz] = getRotatedHalfExtents(b.dims, b.rotation)
+          const [bx, by, bz] = b.position ?? [0, bhy, 0]
+          if (
+            Math.abs(x  - bx) < halfX + bhx - EPS &&
+            Math.abs(baseY - by) < halfY + bhy - EPS &&
+            Math.abs(z  - bz) < halfZ + bhz - EPS
+          ) return true
         }
         return false
       }
 
       const newBoxes = []
-      const EPS = 0.0005
       for (let z = originZ; z <= maxZ + EPS; z += stepZ) {
         for (let x = originX; x <= maxX + EPS; x += stepX) {
           if (collides(x, z)) continue
@@ -290,7 +257,7 @@ export default function CalculatorPage() {
 
       return newBoxes.length ? [...prev, ...newBoxes] : prev
     })
-  }, [palletDims])
+  }, [palletDims, getRotatedHalfExtents])
 
   const handleBoxContextMenu = useCallback((boxId, nativeEvent) => {
     const x = nativeEvent?.clientX ?? 0
@@ -365,24 +332,52 @@ export default function CalculatorPage() {
             className="calc-context-menu"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onMouseDown={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
           >
+            {/* ── Row 1: Rotate ── */}
+            <div className="calc-ctx-label">Rotate 90°</div>
+            <div className="calc-ctx-rot-grid">
+              <button className="calc-ctx-rot-btn"
+                onClick={() => { handleRotate(contextMenu.boxId, 'x',  1); setContextMenu(null) }}>
+                +X
+              </button>
+              <button className="calc-ctx-rot-btn"
+                onClick={() => { handleRotate(contextMenu.boxId, 'x', -1); setContextMenu(null) }}>
+                -X
+              </button>
+              <button className="calc-ctx-rot-btn"
+                onClick={() => { handleRotate(contextMenu.boxId, 'y',  1); setContextMenu(null) }}>
+                +Y
+              </button>
+              <button className="calc-ctx-rot-btn"
+                onClick={() => { handleRotate(contextMenu.boxId, 'y', -1); setContextMenu(null) }}>
+                -Y
+              </button>
+              <button className="calc-ctx-rot-btn"
+                onClick={() => { handleRotate(contextMenu.boxId, 'z',  1); setContextMenu(null) }}>
+                +Z
+              </button>
+              <button className="calc-ctx-rot-btn"
+                onClick={() => { handleRotate(contextMenu.boxId, 'z', -1); setContextMenu(null) }}>
+                -Z
+              </button>
+            </div>
+
+            {/* ── Row 2: Fill level ── */}
+            <div className="calc-ctx-divider" />
             <button
               className="calc-context-btn"
-              onClick={() => {
-                handleFillLevel(contextMenu.boxId)
-                setContextMenu(null)
-              }}
+              onClick={() => { handleFillLevel(contextMenu.boxId); setContextMenu(null) }}
             >
-              Fill this level
+              <span>⬛</span> Fill this level
             </button>
+
+            {/* ── Row 3: Delete ── */}
             <button
               className="calc-context-btn calc-context-btn-danger"
-              onClick={() => {
-                handleDeleteBox(contextMenu.boxId)
-                setContextMenu(null)
-              }}
+              onClick={() => { handleDeleteBox(contextMenu.boxId); setContextMenu(null) }}
             >
-              Delete box
+              <span>✕</span> Delete box
             </button>
           </div>
         )}
@@ -394,6 +389,7 @@ export default function CalculatorPage() {
           gl={{ antialias: true }}
           style={{ width: '100%', height: '100%' }}
           onPointerMissed={() => setSelectedId(null)}
+          onContextMenu={(e) => e.preventDefault()}
         >
           <Suspense fallback={null}>
             <PalletScene

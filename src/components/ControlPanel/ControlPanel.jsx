@@ -1,22 +1,12 @@
 import { useNavigate } from 'react-router-dom'
 import './ControlPanelStyle.css'
 
-const ROTATIONS = [
-  { label: '+X', axis: 'x', dir:  1 },
-  { label: '-X', axis: 'x', dir: -1 },
-  { label: '+Y', axis: 'y', dir:  1 },
-  { label: '-Y', axis: 'y', dir: -1 },
-  { label: '+Z', axis: 'z', dir:  1 },
-  { label: '-Z', axis: 'z', dir: -1 },
-]
-
 export default function ControlPanel({
   boxDims,    setBoxDims,
   palletDims, setPalletDims,
   boxAmount,  setBoxAmount,
   onStageBoxes, onClearAll,
   stagedCount, placedCount,
-  selectedId, onRotate,
   utilPct, heightWarning,
 }) {
   const navigate = useNavigate()
@@ -74,23 +64,6 @@ export default function ControlPanel({
         ))}
       </div>
 
-      {/* Rotate Selected */}
-      <div className="cp-section">
-        <div className="cp-stitle">Rotate Selected Box</div>
-        <div className="cp-rot-grid">
-          {ROTATIONS.map(r => (
-            <button
-              key={r.label + r.axis}
-              className="cp-rot-btn"
-              disabled={!selectedId}
-              onClick={() => onRotate(selectedId, r.axis, r.dir)}
-            >
-              {r.label} 90°
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Statistics */}
       <div className="cp-section">
         <div className="cp-stitle">Statistics</div>
@@ -117,7 +90,7 @@ export default function ControlPanel({
       </div>
 
       <div className="cp-hint">
-        Set amount → Stage boxes → Drag from staging area into pallet · Click to select · Use rotate buttons to flip
+        Click to select · Right-click a box to rotate, fill level, or delete
       </div>
     </div>
   )
