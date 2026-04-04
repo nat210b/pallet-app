@@ -4,10 +4,41 @@
   padding: 0;
 }
 
+:root {
+  --color-bg: #0a0a0f;
+  --color-surface: #12121c;
+  --color-text: #e8e8f0;
+  --color-muted: #8888aa;
+  --color-muted-2: #44445a;
+
+  --color-accent: #f5a623;
+  --color-accent-2: #e06c1a;
+  --color-danger: #e05555;
+
+  --color-border: rgba(255,255,255,0.07);
+  --color-border-2: rgba(255,255,255,0.08);
+  --color-border-3: rgba(255,255,255,0.10);
+
+  --color-panel-bg: rgba(10,10,18,0.97);
+  --color-glass-bg: rgba(12,12,22,0.88);
+  --color-toolbar-bg: rgba(8,8,14,0.92);
+
+  --blur-md: 12px;
+  --blur-lg: 14px;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+
+  --font-head: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
 body {
-  font-family: 'DM Sans', sans-serif;
-  background: #0a0a0f;
-  color: #e8e8f0;
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-text);
   overflow: hidden;
 }
 

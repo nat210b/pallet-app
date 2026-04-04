@@ -2,9 +2,9 @@
   position: absolute; bottom: 0; left: var(--cp-width, 300px); right: 0; z-index: 30;
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px 20px;
-  background: rgba(8,8,14,0.92);
-  backdrop-filter: blur(14px);
-  border-top: 1px solid rgba(255,255,255,0.07);
+  background: var(--color-toolbar-bg);
+  backdrop-filter: blur(var(--blur-lg));
+  border-top: 1px solid var(--color-border);
 }
 
 /* Group divider */
@@ -16,7 +16,7 @@
 
 /* Label */
 .ctb-label {
-  font-family: 'Syne', sans-serif;
+  font-family: var(--font-head);
   font-size: 0.6rem; font-weight: 700;
   letter-spacing: 0.12em; text-transform: uppercase;
   color: #444460; margin-right: 2px; white-space: nowrap;
@@ -27,22 +27,22 @@
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 3px; padding: 7px 14px; border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--color-border-2);
   background: rgba(255,255,255,0.03);
-  color: #8888aa; cursor: pointer;
+  color: var(--color-muted); cursor: pointer;
   transition: all 0.15s; white-space: nowrap;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-body);
   min-width: 64px;
 }
 .ctb-btn:hover {
   background: rgba(245,166,35,0.1);
   border-color: rgba(245,166,35,0.3);
-  color: #f5a623;
+  color: var(--color-accent);
 }
 .ctb-btn.active {
   background: rgba(245,166,35,0.15);
-  border-color: #f5a623;
-  color: #f5a623;
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 .ctb-btn-icon { font-size: 1rem; line-height: 1; }
 .ctb-btn-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.04em; }
@@ -51,10 +51,10 @@
 .ctb-toggle {
   display: flex; align-items: center; gap: 8px;
   padding: 7px 16px; border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--color-border-2);
   background: rgba(255,255,255,0.03);
-  color: #8888aa; cursor: pointer;
-  transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+  color: var(--color-muted); cursor: pointer;
+  transition: all 0.15s; font-family: var(--font-body);
 }
 .ctb-toggle:hover {
   background: rgba(100,180,255,0.1);
