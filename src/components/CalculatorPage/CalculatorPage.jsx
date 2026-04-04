@@ -9,6 +9,7 @@ import './CalculatorPageStyle.css'
 
 const DEFAULT_BOX    = { length: 30, width: 20, height: 20 }
 const DEFAULT_PALLET = { length: 120, width: 80, height: 150 }
+const DEFAULT_PALLET_HEIGHT = 14
 
 let _uid = 1
 
@@ -63,6 +64,7 @@ export default function CalculatorPage() {
   const [boxes,       setBoxes]       = useState([])
   const [boxDims,     setBoxDims]     = useState(DEFAULT_BOX)
   const [palletDims,  setPalletDims]  = useState(DEFAULT_PALLET)
+  const [palletHeight, setPalletHeight] = useState(DEFAULT_PALLET_HEIGHT)
   const [boxAmount,   setBoxAmount]   = useState(5)
   const [selectedId,  setSelectedId]  = useState(null)
   const [cameraMode,  setCameraMode]  = useState('iso')
@@ -152,7 +154,17 @@ export default function CalculatorPage() {
     return best
   }, [placedBoxes, getRotatedHalfExtents])
 
-  const heightWarning = maxStackY > palletDims.height / 10
+  const palletHeightUnits = useMemo(
+    () => Math.max(0, (Number(palletHeight) || 0) / 10),
+    [palletHeight]
+  )
+  const limitHeightUnits = useMemo(
+    () => Math.max(0, (Number(palletDims.height) || 0) / 10),
+    [palletDims.height]
+  )
+
+  const totalHeightUnits = maxStackY + palletHeightUnits
+  const heightWarning = totalHeightUnits > limitHeightUnits
 
   useEffect(() => {
     if (!contextMenu) return
@@ -167,11 +179,12 @@ export default function CalculatorPage() {
   }, [contextMenu])
 
   const utilPct = useMemo(() => {
-    const palletVol = palletDims.length * palletDims.width * palletDims.height
+    const usableH = Math.max(0, palletDims.height - palletHeight)
+    const palletVol = palletDims.length * palletDims.width * usableH
     if (!palletVol || !placedBoxes.length) return 0
     const boxVol = placedBoxes.reduce((a, b) => a + b.dims.length * b.dims.width * b.dims.height, 0)
     return Math.min(999, Math.round((boxVol / palletVol) * 100))
-  }, [placedBoxes, palletDims])
+  }, [placedBoxes, palletDims, palletHeight])
 
   // ── Stage N boxes (unplaced, sitting in staging area) ──────────
   const handleStageBoxes = useCallback(() => {
@@ -215,11 +228,10 @@ export default function CalculatorPage() {
 
       const halfPW = palletDims.length / 10 / 2
       const halfPD = palletDims.width  / 10 / 2
-      const palletH = palletDims.height / 10
 
       const [halfX, halfY, halfZ] = getRotatedHalfExtents(ref.dims, ref.rotation)
       const baseY = ref.staged ? halfY : (ref.position?.[1] ?? halfY)
-      if (baseY + halfY > palletH + 0.0005) return prev
+      if (baseY + halfY + palletHeightUnits > limitHeightUnits + 0.0005) return prev
 
       // Use rotated extents for step sizes
       const stepX = halfX * 2
@@ -272,7 +284,7 @@ export default function CalculatorPage() {
 
       return newBoxes.length ? [...prev, ...newBoxes] : prev
     })
-  }, [palletDims, getRotatedHalfExtents])
+  }, [palletDims, palletHeightUnits, limitHeightUnits, getRotatedHalfExtents])
 
   const handleBoxContextMenu = useCallback((boxId, nativeEvent) => {
     const x = nativeEvent?.clientX ?? 0
@@ -307,6 +319,8 @@ export default function CalculatorPage() {
       <ControlPanel
         boxDims={boxDims}       setBoxDims={setBoxDims}
         palletDims={palletDims} setPalletDims={setPalletDims}
+        palletHeight={palletHeight} setPalletHeight={setPalletHeight}
+        usableBoxHeight={Math.max(0, Math.round((palletDims.height - palletHeight) * 10) / 10)}
         boxAmount={boxAmount}   setBoxAmount={setBoxAmount}
         onStageBoxes={handleStageBoxes}
         onClearAll={handleClearAll}
@@ -418,6 +432,8 @@ export default function CalculatorPage() {
             <PalletScene
               boxes={boxes}
               palletDims={palletDims}
+              palletHeight={palletHeight}
+              heightLimit={limitHeightUnits}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onMove={handleMove}

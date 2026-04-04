@@ -10,6 +10,8 @@ const STAGING_GAP      = 0.12
 
 export default function PalletScene({
   boxes, palletDims,
+  palletHeight,
+  heightLimit,
   selectedId, onSelect,
   onMove, onDropToPallet,
   heightWarning,
@@ -17,8 +19,12 @@ export default function PalletScene({
   onBoxContextMenu,
 }) {
   const pw = palletDims.length / 10
-  const ph = palletDims.height / 10
+  const phTotal = Math.max(0, Number(heightLimit) || 0)
   const pd = palletDims.width  / 10
+
+  const palletH = useMemo(() => Math.max(0.01, (Number(palletHeight) || 0) / 10), [palletHeight])
+  const groundY = useMemo(() => -palletH - 0.01, [palletH])
+  const limitTopY = useMemo(() => phTotal - palletH, [phTotal, palletH])
 
   const warnRef = useRef()
 
@@ -32,14 +38,7 @@ export default function PalletScene({
   const planks = useMemo(() =>
     [-pw * 0.33, 0, pw * 0.33].map(x => [x, 0.001, 0]), [pw])
 
-  const feet = useMemo(() => [
-    [-pw / 2 + 0.12, -0.08, -pd / 2 + 0.12],
-    [ pw / 2 - 0.12, -0.08, -pd / 2 + 0.12],
-    [-pw / 2 + 0.12, -0.08,  pd / 2 - 0.12],
-    [ pw / 2 - 0.12, -0.08,  pd / 2 - 0.12],
-  ], [pw, pd])
-
-  const boundGeo   = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(pw, ph, pd)), [pw, ph, pd])
+  const boundGeo   = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(pw, phTotal, pd)), [pw, phTotal, pd])
   const warnGeo    = useMemo(() => new THREE.PlaneGeometry(pw, pd), [pw, pd])
   const limLineGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(pw, 0.004, pd)), [pw, pd])
 
@@ -142,16 +141,16 @@ export default function PalletScene({
 
       {/* Floor grid */}
       <Grid
-        position={[0, -0.13, 0]} args={[60, 60]} infiniteGrid
+        position={[0, groundY, 0]} args={[60, 60]} infiniteGrid
         cellSize={0.5} cellColor="#1a1a28" cellThickness={0.5}
         sectionSize={2.5} sectionColor="#252535" sectionThickness={0.9}
         fadeDistance={28}
       />
-      <ContactShadows position={[0, -0.12, 0]} opacity={0.45} scale={30} blur={2.5} far={6} />
+      <ContactShadows position={[0, groundY + 0.01, 0]} opacity={0.45} scale={30} blur={2.5} far={6} />
 
       {/* ── PALLET ── */}
-      <mesh position={[0, -0.06, 0]} receiveShadow>
-        <boxGeometry args={[pw, 0.12, pd]} />
+      <mesh position={[0, -palletH / 2, 0]} receiveShadow>
+        <boxGeometry args={[pw, palletH, pd]} />
         <meshStandardMaterial color="#8B6C14" roughness={0.85} metalness={0.04} />
       </mesh>
       {planks.map(([x, y, z], i) => (
@@ -160,25 +159,20 @@ export default function PalletScene({
           <meshStandardMaterial color="#6B4F0E" roughness={0.9} />
         </mesh>
       ))}
-      {feet.map(([x, y, z], i) => (
-        <mesh key={i} position={[x, y, z]}>
-          <boxGeometry args={[0.13, 0.08, 0.13]} />
-          <meshStandardMaterial color="#5a4010" roughness={0.9} />
-        </mesh>
-      ))}
+
 
       {/* Pallet boundary wireframe */}
-      <lineSegments geometry={boundGeo} position={[0, ph / 2, 0]}>
+      <lineSegments geometry={boundGeo} position={[0, -palletH + phTotal / 2, 0]}>
         <lineBasicMaterial color={heightWarning ? '#ff5555' : 'rgba(255,255,255,0.06)'} />
       </lineSegments>
 
       {/* Height limit line */}
-      <lineSegments geometry={limLineGeo} position={[0, ph, 0]}>
+      <lineSegments geometry={limLineGeo} position={[0, limitTopY, 0]}>
         <lineBasicMaterial color={heightWarning ? '#ff3333' : 'rgba(255,80,80,0.2)'} linewidth={2} />
       </lineSegments>
 
       {/* Warning plane */}
-      <mesh ref={warnRef} geometry={warnGeo} position={[0, ph, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh ref={warnRef} geometry={warnGeo} position={[0, limitTopY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <meshBasicMaterial color="#ff2222" transparent opacity={0} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
 
@@ -186,7 +180,7 @@ export default function PalletScene({
       {staged.length > 0 && (
         <>
           {/* Staging floor mat */}
-          <mesh position={[stagingCenterX - 0.3, -0.115, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <mesh position={[stagingCenterX - 0.3, groundY + 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
             <planeGeometry args={[stagingAreaW, stagingAreaD]} />
             <meshStandardMaterial color="#1a1a2e" roughness={1} transparent opacity={0.75} />
           </mesh>
