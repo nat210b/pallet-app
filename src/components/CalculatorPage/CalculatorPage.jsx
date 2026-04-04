@@ -165,6 +165,10 @@ export default function CalculatorPage() {
 
   const totalHeightUnits = maxStackY + palletHeightUnits
   const heightWarning = totalHeightUnits > limitHeightUnits
+  const totalHeightCm = useMemo(() => {
+    const boxHeightCm = Math.max(0, totalHeightUnits * 10)
+    return Math.round(boxHeightCm * 10) / 10
+  }, [totalHeightUnits])
 
   useEffect(() => {
     if (!contextMenu) return
@@ -321,6 +325,9 @@ export default function CalculatorPage() {
         palletDims={palletDims} setPalletDims={setPalletDims}
         palletHeight={palletHeight} setPalletHeight={setPalletHeight}
         usableBoxHeight={Math.max(0, Math.round((palletDims.height - palletHeight) * 10) / 10)}
+        totalHeight={totalHeightCm}
+        limitHeight={palletDims.height}
+        maxLevels={maxLevels}
         boxAmount={boxAmount}   setBoxAmount={setBoxAmount}
         onStageBoxes={handleStageBoxes}
         onClearAll={handleClearAll}
