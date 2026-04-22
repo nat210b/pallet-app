@@ -4,9 +4,9 @@ import { useCursor } from '@react-three/drei'
 import * as THREE from 'three'
 
 const PALETTE = [
-  '#e8a838','#4a9edd','#6bcc7a','#cc6b9a',
-  '#8b6bcc','#cc7a5a','#5accc0','#cc5a5a',
-  '#a2cc5a','#5a8bcc','#cca85a','#5accaa',
+  '#0f4c81', '#d4af37', '#ea580c', '#1e3a8a',
+  '#f59e0b', '#64748b', '#3b82f6', '#10b981',
+  '#b45309', '#0ea5e9', '#475569', '#fcd34d',
 ]
 
 // Fixed floor-level drag plane — always at Y=0 (pallet surface)
@@ -200,6 +200,8 @@ export default function DraggableBox({
 
   const onPointerDown = useCallback((e) => {
     e.stopPropagation()
+    if (e.button === 2) return // Ignore right-click
+    
     e.target.setPointerCapture?.(e.pointerId)
     onSelect(id)
     dragging.current = true

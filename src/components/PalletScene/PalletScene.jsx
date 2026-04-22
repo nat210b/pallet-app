@@ -35,8 +35,6 @@ export default function PalletScene({
       : 0
   })
 
-  const planks = useMemo(() =>
-    [-pw * 0.33, 0, pw * 0.33].map(x => [x, 0.001, 0]), [pw])
 
   const boundGeo   = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(pw, phTotal, pd)), [pw, phTotal, pd])
   const warnGeo    = useMemo(() => new THREE.PlaneGeometry(pw, pd), [pw, pd])
@@ -142,28 +140,52 @@ export default function PalletScene({
       {/* Floor grid */}
       <Grid
         position={[0, groundY, 0]} args={[60, 60]} infiniteGrid
-        cellSize={0.5} cellColor="#1a1a28" cellThickness={0.5}
-        sectionSize={2.5} sectionColor="#252535" sectionThickness={0.9}
+        cellSize={0.5} cellColor="#e2e8f0" cellThickness={0.8}
+        sectionSize={2.5} sectionColor="#cbd5e1" sectionThickness={1.2}
         fadeDistance={28}
       />
       <ContactShadows position={[0, groundY + 0.01, 0]} opacity={0.45} scale={30} blur={2.5} far={6} />
 
       {/* ── PALLET ── */}
-      <mesh position={[0, -palletH / 2, 0]} receiveShadow>
-        <boxGeometry args={[pw, palletH, pd]} />
-        <meshStandardMaterial color="#8B6C14" roughness={0.85} metalness={0.04} />
-      </mesh>
-      {planks.map(([x, y, z], i) => (
-        <mesh key={i} position={[x, y, z]}>
-          <boxGeometry args={[0.055, 0.013, pd]} />
-          <meshStandardMaterial color="#6B4F0E" roughness={0.9} />
-        </mesh>
-      ))}
+      <group position={[0, 0, 0]}>
+        {/* Top deck boards (5 lengthwise) */}
+        {[-0.42, -0.21, 0, 0.21, 0.42].map((zMod, i) => (
+          <mesh key={`top-${i}`} position={[0, -0.15 * palletH / 2, zMod * pd]} receiveShadow castShadow>
+            <boxGeometry args={[pw, 0.15 * palletH, pd * 0.16]} />
+            <meshStandardMaterial color="#e3bc8e" roughness={0.8} metalness={0.02} />
+          </mesh>
+        ))}
 
+        {/* Stringer boards (3 crosswise) */}
+        {[-0.44, 0, 0.44].map((xMod, i) => (
+          <mesh key={`stringer-${i}`} position={[xMod * pw, -0.15 * palletH - 0.15 * palletH / 2, 0]} receiveShadow castShadow>
+            <boxGeometry args={[pw * 0.12, 0.15 * palletH, pd]} />
+            <meshStandardMaterial color="#d1a675" roughness={0.85} metalness={0.02} />
+          </mesh>
+        ))}
+
+        {/* Blocks (3x3 grid) */}
+        {[-0.44, 0, 0.44].map((xMod, i) =>
+          [-0.42, 0, 0.42].map((zMod, j) => (
+            <mesh key={`block-${i}-${j}`} position={[xMod * pw, -0.30 * palletH - 0.55 * palletH / 2, zMod * pd]} receiveShadow castShadow>
+              <boxGeometry args={[pw * 0.12, 0.55 * palletH, pd * 0.16]} />
+              <meshStandardMaterial color="#b88b56" roughness={0.9} metalness={0.05} />
+            </mesh>
+          ))
+        )}
+
+        {/* Base boards (3 lengthwise) */}
+        {[-0.42, 0, 0.42].map((zMod, i) => (
+          <mesh key={`base-${i}`} position={[0, -0.85 * palletH - 0.15 * palletH / 2, zMod * pd]} receiveShadow castShadow>
+            <boxGeometry args={[pw, 0.15 * palletH, pd * 0.16]} />
+            <meshStandardMaterial color="#e3bc8e" roughness={0.85} metalness={0.02} />
+          </mesh>
+        ))}
+      </group>
 
       {/* Pallet boundary wireframe */}
       <lineSegments geometry={boundGeo} position={[0, -palletH + phTotal / 2, 0]}>
-        <lineBasicMaterial color={heightWarning ? '#ff5555' : 'rgba(255,255,255,0.06)'} />
+        <lineBasicMaterial color={heightWarning ? '#ef4444' : 'rgba(15, 23, 42, 0.1)'} />
       </lineSegments>
 
       {/* Height limit line */}
@@ -182,13 +204,13 @@ export default function PalletScene({
           {/* Staging floor mat */}
           <mesh position={[stagingCenterX - 0.3, groundY + 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
             <planeGeometry args={[stagingAreaW, stagingAreaD]} />
-            <meshStandardMaterial color="#1a1a2e" roughness={1} transparent opacity={0.75} />
+            <meshStandardMaterial color="#f1f5f9" roughness={1} transparent opacity={0.8} />
           </mesh>
 
           {/* Staging border */}
           <lineSegments position={[stagingCenterX - 0.3, 0, 0]}>
             <edgesGeometry args={[new THREE.BoxGeometry(stagingAreaW, 0.01, stagingAreaD)]} />
-            <lineBasicMaterial color="rgba(245,166,35,0.3)" />
+            <lineBasicMaterial color="rgba(15, 76, 129, 0.2)" />
           </lineSegments>
 
           {/* Label — HTML overlay (works in Vite / R3F without font files) */}
@@ -205,10 +227,10 @@ export default function PalletScene({
               fontWeight: 700,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              color: '#f5a623',
+              color: '#0f4c81',
               whiteSpace: 'nowrap',
               opacity: 0.8,
-              textShadow: '0 0 8px rgba(245,166,35,0.5)',
+              textShadow: '0 0 8px rgba(15,76,129,0.2)',
             }}>
               ▸ Staging Area — drag boxes onto pallet
             </div>

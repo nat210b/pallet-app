@@ -5,23 +5,24 @@
 }
 
 :root {
-  --color-bg: #0a0a0f;
-  --color-surface: #12121c;
-  --color-text: #e8e8f0;
-  --color-muted: #8888aa;
-  --color-muted-2: #44445a;
+  --color-bg: #f8f9fc;
+  --color-surface: #ffffff;
+  --color-text: #0f172a;
+  --color-muted: #475569;
+  --color-muted-2: #94a3b8;
 
-  --color-accent: #f5a623;
-  --color-accent-2: #e06c1a;
-  --color-danger: #e05555;
+  --color-accent: #0f4c81;
+  --color-accent-2: #1e3a8a;
+  --color-danger: #dc2626;
+  --color-accent-gold: #d4af37;
 
-  --color-border: rgba(255,255,255,0.07);
-  --color-border-2: rgba(255,255,255,0.08);
-  --color-border-3: rgba(255,255,255,0.10);
+  --color-border: rgba(15, 23, 42, 0.08);
+  --color-border-2: rgba(15, 23, 42, 0.12);
+  --color-border-3: rgba(15, 23, 42, 0.2);
 
-  --color-panel-bg: rgba(10,10,18,0.97);
-  --color-glass-bg: rgba(12,12,22,0.88);
-  --color-toolbar-bg: rgba(8,8,14,0.92);
+  --color-panel-bg: rgba(255, 255, 255, 0.95);
+  --color-glass-bg: rgba(255, 255, 255, 0.85);
+  --color-toolbar-bg: rgba(248, 250, 252, 0.92);
 
   --blur-md: 12px;
   --blur-lg: 14px;
@@ -39,11 +40,10 @@ body {
   font-family: var(--font-body);
   background: var(--color-bg);
   color: var(--color-text);
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 #root {
   width: 100%;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
