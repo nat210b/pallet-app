@@ -65,7 +65,7 @@ export default function LandingPage() {
     <div>
       {/* NAV */}
       <nav className="lp-nav">
-        <div className="lp-nav-logo">PalletPro</div>
+        <div className="lp-nav-logo">PalletX</div>
         <button className="lp-nav-cta" onClick={() => navigate('/calculator')}>
           Try Calculator
         </button>
@@ -82,7 +82,7 @@ export default function LandingPage() {
             Ship <span>Less Air</span>.
           </h1>
           <p>
-            PalletPro is the interactive 3D pallet loading calculator built for
+            PalletX is the interactive 3D pallet loading calculator built for
             modern logistics teams. Visualize, optimize, and maximize every
             centimeter of your cargo space.
           </p>
@@ -100,7 +100,7 @@ export default function LandingPage() {
         <div className="lp-section-tag">Features</div>
         <div className="lp-section-h">Everything you need to load perfectly.</div>
         <div className="lp-section-sub">
-          From 3D drag-and-drop to automated height warnings — PalletPro covers
+          From 3D drag-and-drop to automated height warnings — PalletX covers
           the full loading workflow.
         </div>
         <div className="lp-features-grid">
@@ -151,7 +151,7 @@ export default function LandingPage() {
 
       {/* FOOTER */}
       <footer className="lp-footer">
-        <strong>PalletPro</strong> © {new Date().getFullYear()} — Smarter loading for modern logistics.
+        <strong>PalletX</strong> © {new Date().getFullYear()} — Smarter loading for modern logistics.
       </footer>
     </div>
   )

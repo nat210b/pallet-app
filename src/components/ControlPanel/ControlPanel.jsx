@@ -58,7 +58,7 @@ export default function ControlPanel({
             <polyline points="12 19 5 12 12 5"></polyline>
           </svg>
         </button>
-        <div className="cp-logo">PalletPro</div>
+        <div className="cp-logo">PalletX</div>
       </div>
 
       <div className="cp-body">
